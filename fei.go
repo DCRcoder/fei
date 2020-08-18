@@ -64,11 +64,16 @@ func New(cfg *Config) (*Engine, error) {
 	return e, nil
 }
 
-// NewSession return new session instance
-func (e *Engine) NewSession() *Session {
+// NewSessionCtx return new sessiont instance with ctx
+func (e *Engine) NewSessionCtx(ctx context.Context) *Session {
 	return &Session{
 		db:        e.DB,
-		ctx:       context.Background(),
+		ctx:       ctx,
 		statement: &Statement{},
 	}
+}
+
+// NewSession return new session instance
+func (e *Engine) NewSession() *Session {
+	return e.NewSessionCtx(context.Background())
 }
