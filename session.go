@@ -2,6 +2,7 @@ package fei
 
 import (
 	"context"
+	"database/sql"
 )
 
 // Session db conn session
@@ -11,6 +12,7 @@ type Session struct {
 	ctx       context.Context
 	statement *Statement
 	useMaster bool
+	logger    Logger
 }
 
 // UseMaster enable use master
@@ -37,8 +39,9 @@ func (s *Session) Count() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	s.logger.Debugf("[Session Count] sql: %s, args: %v", sql, args)
 	var count int64
-	row := s.db.Slave().QueryRow(sql, args...)
+	row := s.QueryRow(sql, args...)
 	row.Scan(&count)
 	return count, nil
 }
@@ -75,4 +78,20 @@ func (s *Session) Where(expr ...interface{}) *Session {
 	s.initStatemnt()
 	s.statement.Where(expr...)
 	return s
+}
+
+// QueryRow use QueryRow with session config
+func (s *Session) QueryRow(query string, args ...interface{}) *sql.Row {
+	if s.useMaster {
+		return s.db.Master().QueryRowContext(s.ctx, query, args...)
+	}
+	return s.db.Slave().QueryRowContext(s.ctx, query, args...)
+}
+
+// Query use Query with session config
+func (s *Session) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if s.useMaster {
+		return s.db.Master().QueryContext(s.ctx, query, args...)
+	}
+	return s.db.Slave().QueryContext(s.ctx, query, args...)
 }

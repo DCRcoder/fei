@@ -9,6 +9,7 @@ import (
 
 func TestFindOne(t *testing.T) {
 	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
+	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
 	count, err := engine.NewSession().Select().From("codebook").Where(Eq{"name": "laojun"}).Count()
 	assert.Equal(t, err, nil)

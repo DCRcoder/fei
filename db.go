@@ -42,16 +42,20 @@ func OpenMasterAndSlaves(driverName, master string, slaves []string) (*DB, error
 // SetMaxIdleConns set max idle conns
 func (db *DB) SetMaxIdleConns(n int) {
 	db.master.SetMaxIdleConns(n)
-	for _, s := range db.slaves {
-		s.SetMaxIdleConns(n)
+	if db.EnableMS {
+		for _, s := range db.slaves {
+			s.SetMaxIdleConns(n)
+		}
 	}
 }
 
 // SetMaxOpenConns set max idle conns
 func (db *DB) SetMaxOpenConns(n int) {
 	db.master.SetMaxOpenConns(n)
-	for _, s := range db.slaves {
-		s.SetMaxOpenConns(n)
+	if db.EnableMS {
+		for _, s := range db.slaves {
+			s.SetMaxOpenConns(n)
+		}
 	}
 }
 
@@ -62,11 +66,14 @@ func (db *DB) Master() *sql.DB {
 
 // Slave return slave
 func (db *DB) Slave() *sql.DB {
-	slaveNum := uint64(len(db.slaves))
-	if slaveNum == 0 {
-		return db.master
+	if db.EnableMS {
+		slaveNum := uint64(len(db.slaves))
+		if slaveNum == 0 {
+			return db.master
+		}
+		return db.slaves[atomic.AddUint64(&db.nextIdx, 1)%slaveNum]
 	}
-	return db.slaves[atomic.AddUint64(&db.nextIdx, 1)%slaveNum]
+	return db.Master()
 }
 
 // Close impl Conn close method
@@ -75,10 +82,12 @@ func (db *DB) Close() error {
 	if err != nil {
 		return err
 	}
-	for _, s := range db.slaves {
-		err := s.Close()
-		if err != nil {
-			return err
+	if db.EnableMS {
+		for _, s := range db.slaves {
+			err := s.Close()
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

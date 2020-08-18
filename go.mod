@@ -9,5 +9,6 @@ require (
 	github.com/alecthomas/repr v0.0.0-20200325044227-4184120f674c // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/rs/zerolog v1.19.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 )

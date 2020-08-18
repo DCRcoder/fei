@@ -1,8 +1,6 @@
 package fei
 
 import (
-	"fmt"
-
 	sq "github.com/Masterminds/squirrel"
 )
 
@@ -15,7 +13,6 @@ const (
 	UpdateStatement  StatementType = 2
 	DeleteStatement  StatementType = 3
 	SelectStatement  StatementType = 4
-	CountStatement   StatementType = 5
 )
 
 // Statement statement
@@ -66,18 +63,21 @@ func (st *Statement) Columns(columns ...string) *Statement {
 
 // Insert set insert statement
 func (st *Statement) Insert() *Statement {
+	st.Reset()
 	st.stType = InsertStatement
 	return st
 }
 
 // Update set update statement
 func (st *Statement) Update() *Statement {
+	st.Reset()
 	st.stType = UpdateStatement
 	return st
 }
 
 // Delete set delete statement
 func (st *Statement) Delete() *Statement {
+	st.Reset()
 	st.stType = DeleteStatement
 	return st
 }
@@ -113,10 +113,10 @@ func (st *Statement) OrderBy(orderby ...string) *Statement {
 // ToSQL gen SQl
 func (st *Statement) ToSQL() (string, []interface{}, error) {
 	if st.table == "" {
-		return "", nil, fmt.Errorf("sql table not set")
+		return "", nil, StatementTableNotSet
 	}
 	if st.stType == UnknownStatement {
-		return "", nil, fmt.Errorf("sql type not set")
+		return "", nil, StatementTypeNotSet
 	}
 	switch st.stType {
 	case SelectStatement:
@@ -139,10 +139,9 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 		if len(st.orderBys) > 0 {
 			builder = builder.OrderBy(st.orderBys...)
 		}
-		sqlStr, args, err := builder.ToSql()
-		return sqlStr, args, err
+		return builder.ToSql()
 	}
-	return "", nil, fmt.Errorf("TOSQL failed")
+	return "", nil, StatementTypeNotSet
 }
 
 // ConvertCondition convert condition to sq condition it will panic if convert not found
