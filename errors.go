@@ -1,9 +1,14 @@
 package fei
 
-import "fmt"
+import (
+	"errors"
+)
 
 var (
-	CFBNotAllowEmpty     = fmt.Errorf("config not allow empty")
-	StatementTableNotSet = fmt.Errorf("statement table not set")
-	StatementTypeNotSet  = fmt.Errorf("statement type not set")
+	CFBNotAllowEmpty            = errors.New("config not allow empty")
+	StatementTableNotSet        = errors.New("statement table not set")
+	StatementTypeNotSet         = errors.New("statement type not set")
+	ScannerRowsPointerNil       = errors.New("Scanner rows could not be nil pointer")
+	ScannerEntityNeedCanSet     = errors.New("Entity need can set")
+	ScannerEntiryTypeNotSupport = errors.New("Scanner Entity not support. it should be pointer or slice")
 )

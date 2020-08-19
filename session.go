@@ -13,6 +13,7 @@ type Session struct {
 	statement *Statement
 	useMaster bool
 	logger    Logger
+	model     interface{}
 }
 
 // UseMaster enable use master
@@ -23,12 +24,53 @@ func (s *Session) UseMaster() *Session {
 
 // FindOne get one result
 func (s *Session) FindOne(dest interface{}) error {
-	return nil
+	s.initStatemnt()
+	s.Limit(1)
+	scanner, err := NewScanner(dest)
+	if err != nil {
+		return err
+	}
+	if s.statement.table == "" {
+		s.statement.From(scanner.GetTableName())
+	}
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		return err
+	}
+	s.logger.Debugf("[Session FindOne] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	rows, err := s.QueryContext(s.ctx, sql, args...)
+	if err != nil {
+		return err
+	}
+	scanner.SetRows(rows)
+	return scanner.Convert()
 }
 
 // FindAll get all result
 func (s *Session) FindAll(dest interface{}) error {
 	return nil
+}
+
+// Insert create new record
+func (s *Session) Insert(model interface{}) (int64, error) {
+	return 0, nil
+}
+
+// Update update one record
+func (s *Session) Update(model interface{}) (int64, error) {
+	return 0, nil
+}
+
+// Delete delete one record
+func (s *Session) Delete(model interface{}) (int64, error) {
+	return 0, nil
+}
+
+func (s *Session) initCtx() {
+	if s.ctx == nil {
+		s.ctx = context.Background()
+	}
 }
 
 // Count return query count
@@ -41,8 +83,12 @@ func (s *Session) Count() (int64, error) {
 	}
 	s.logger.Debugf("[Session Count] sql: %s, args: %v", sql, args)
 	var count int64
-	row := s.QueryRow(sql, args...)
-	row.Scan(&count)
+	s.initCtx()
+	rows, err := s.QueryContext(s.ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	rows.Scan(&count)
 	return count, nil
 }
 
@@ -80,18 +126,52 @@ func (s *Session) Where(expr ...interface{}) *Session {
 	return s
 }
 
+// Limit set limit
+func (s *Session) Limit(limit uint64) *Session {
+	s.statement.Limit(limit)
+	return s
+}
+
+// Offset set limit
+func (s *Session) Offset(offset uint64) *Session {
+	s.statement.Offset(offset)
+	return s
+}
+
+// OrderBy set order by
+func (s *Session) OrderBy(orderby string) *Session {
+	s.statement.OrderBy(orderby)
+	return s
+}
+
 // QueryRow use QueryRow with session config
 func (s *Session) QueryRow(query string, args ...interface{}) *sql.Row {
 	if s.useMaster {
-		return s.db.Master().QueryRowContext(s.ctx, query, args...)
+		return s.db.Master().QueryRow(query, args...)
 	}
-	return s.db.Slave().QueryRowContext(s.ctx, query, args...)
+	return s.db.Slave().QueryRow(query, args...)
 }
 
 // Query use Query with session config
 func (s *Session) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if s.useMaster {
-		return s.db.Master().QueryContext(s.ctx, query, args...)
+		return s.db.Master().Query(query, args...)
 	}
-	return s.db.Slave().QueryContext(s.ctx, query, args...)
+	return s.db.Slave().Query(query, args...)
+}
+
+// QueryContext use QueryContext with session config
+func (s *Session) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	if s.useMaster {
+		return s.db.Master().QueryContext(ctx, query, args...)
+	}
+	return s.db.Slave().QueryContext(ctx, query, args...)
+}
+
+// QueryRawContext use QueryRawContext with session config
+func (s *Session) QueryRawContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	if s.useMaster {
+		return s.db.Master().QueryRowContext(ctx, query, args...)
+	}
+	return s.db.Slave().QueryRowContext(ctx, query, args...)
 }

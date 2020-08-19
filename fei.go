@@ -80,7 +80,9 @@ func New(cfg *Config) (*Engine, error) {
 
 // SetLogger set loggger
 func (e *Engine) SetLogger(logger Logger) {
-	e.Logger = logger
+	if logger != nil {
+		e.Logger = logger
+	}
 }
 
 // SetLogLevel set logger level
@@ -100,5 +102,10 @@ func (e *Engine) NewSessionCtx(ctx context.Context) *Session {
 
 // NewSession return new session instance
 func (e *Engine) NewSession() *Session {
-	return e.NewSessionCtx(context.Background())
+	return e.NewSessionCtx(nil)
+}
+
+// Close Engine close
+func (e *Engine) Close() {
+	e.Close()
 }
