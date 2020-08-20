@@ -11,25 +11,81 @@ const (
 )
 
 // Scanner convert rows to model
+// Don't scan into interface{} but the type you would expect, the database/sql package converts the returned type for you then.
 type Scanner struct {
 	rows          *sql.Rows
 	fields        []string
-	fieldTypes    []*sql.ColumnType
 	entity        interface{}
+	entityType    reflect.Type
 	entityValue   reflect.Value
 	entityPointer reflect.Value
+	model         *Model
 }
 
-// NewScanner return new instance
+// Model describe table struct
+type Model struct {
+	TableName string
+	Value     reflect.Value
+	Fields    map[string]*Field
+}
+
+// Field describe table field
+type Field struct {
+	Name   string
+	idx    int
+	Column reflect.StructField
+	Value  reflect.Value
+}
+
+// NewModel return new model instanc
+func NewModel(value reflect.Value) *Model {
+	m := &Model{}
+	_, ok := value.Type().MethodByName("TableName")
+	if ok {
+		vals := value.MethodByName("TableName").Call([]reflect.Value{})
+		if len(vals) > 0 {
+			switch vals[0].Kind() {
+			case reflect.String:
+				m.TableName = vals[0].String()
+			}
+		}
+	}
+	m.Fields = make(map[string]*Field)
+	elem := value.Elem()
+	for i := 0; i < elem.NumField(); i++ {
+		df := elem.Type().Field(i)
+		fieldName := ToSnakeCase(df.Name)
+		if df.Tag.Get(feiColumnName) != "" {
+			fieldName = df.Tag.Get(feiColumnName)
+		}
+		m.Fields[fieldName] = &Field{
+			Name: fieldName,
+			idx:  i,
+		}
+	}
+	return m
+}
+
+// NewScanner return new scanner instance
 func NewScanner(dest interface{}) (*Scanner, error) {
-	entityVal := reflect.ValueOf(dest)
+	entityValue := reflect.ValueOf(dest)
+	fmt.Println(entityValue.Kind())
 	s := &Scanner{
 		entity:        dest,
-		entityValue:   entityVal,
-		entityPointer: reflect.Indirect(entityVal),
+		entityValue:   entityValue,
+		entityPointer: reflect.Indirect(entityValue),
 	}
+	fmt.Println(s.entityPointer.Kind())
 	if !s.entityPointer.CanSet() {
 		return nil, ScannerEntityNeedCanSet
+	}
+	switch s.entityPointer.Kind() {
+	case reflect.Slice:
+		
+	case reflect.Struct:
+		s.model = NewModel(s.entityValue)
+	default:
+		return nil, ScannerEntiryTypeNotSupport
 	}
 	return s, nil
 }
@@ -41,20 +97,13 @@ func (sc *Scanner) SetRows(rows *sql.Rows) {
 
 // GetTableName try get table from dest
 func (sc *Scanner) GetTableName() string {
-	_, ok := sc.entityValue.Type().MethodByName("TableName")
-	if ok {
-		vals := sc.entityValue.MethodByName("TableName").Call([]reflect.Value{})
-		if len(vals) > 0 {
-			switch vals[0].Kind() {
-			case reflect.String:
-				return vals[0].String()
-			}
-		}
+	if sc.model != nil {
+		return sc.model.TableName
 	}
 	return ""
 }
 
-// Convert scan rows to des
+// Convert scan rows to dest
 func (sc *Scanner) Convert() error {
 	if sc.rows == nil {
 		return ScannerRowsPointerNil
@@ -65,12 +114,6 @@ func (sc *Scanner) Convert() error {
 		return err
 	}
 	sc.fields = fields
-	fieldTypes, err := sc.rows.ColumnTypes()
-	if err != nil {
-		return err
-	}
-	sc.fieldTypes = fieldTypes
-	fmt.Println(fieldTypes)
 	switch sc.entityValue.Kind() {
 	case reflect.Slice:
 		fmt.Println("i m slice")
@@ -89,7 +132,10 @@ func (sc *Scanner) convertOne() error {
 		srcValue[i] = &v
 	}
 	if sc.rows.Next() {
-		sc.rows.Scan(srcValue...)
+		err := sc.rows.Scan(srcValue...)
+		if err != nil {
+			return err
+		}
 		sc.SetEntity(srcValue)
 		fmt.Println(sc.entity)
 	}
@@ -104,33 +150,44 @@ func (sc *Scanner) SetEntity(srcValue []interface{}) error {
 		value := srcValue[i]
 		tmpMap[field] = value
 	}
-	elem := sc.entityValue.Elem()
-	for f := 0; f < elem.Type().NumField(); f++ {
-		df := elem.Type().Field(f)
-		fieldName := ToSnakeCase(df.Name)
-		if df.Tag.Get(feiColumnName) != "" {
-			fieldName = df.Tag.Get(feiColumnName)
-		}
-		val, ok := tmpMap[fieldName]
+	for name, field := range sc.model.Fields {
+		fmt.Println(field)
+		val, ok := tmpMap[name]
 		if !ok {
 			continue
 		}
-		ff := sc.entityPointer.Field(f)
+		ff := sc.entityPointer.Field(field.idx)
 		rawVal := reflect.Indirect(reflect.ValueOf(val))
 		if rawVal.Interface() == nil {
 			continue
 		}
 		rawValueType := reflect.TypeOf(rawVal.Interface())
 		vv := reflect.ValueOf(rawVal.Interface())
-		fmt.Println(val, fieldName, rawVal, rawValueType.Kind(), ff.Kind())
+		fmt.Println(val, name, rawVal, rawValueType.Kind(), rawValueType, ff.Kind())
 		switch ff.Kind() {
 		case reflect.String:
-			fmt.Println(vv.String())
-			fmt.Println("i m string")
-		case reflect.Int64:
-			if rawValueType.Kind() == reflect.Int64 {
-				var n = int64(vv.Int())
-				ff.Set(reflect.ValueOf(n))
+			switch data := rawVal.Interface().(type) {
+			case string:
+				ff.SetString(data)
+			case []uint8:
+				ff.SetString(string(data))
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			switch rawValueType.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				ff.SetInt(vv.Int())
+			}
+		case reflect.Float32, reflect.Float64:
+			switch rawValueType.Kind() {
+			case reflect.Float32, reflect.Float64:
+				ff.SetFloat(vv.Float())
+			}
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+			switch rawValueType.Kind() {
+			case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+				ff.SetUint(vv.Uint())
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				ff.SetUint(uint64(vv.Int()))
 			}
 		}
 	}

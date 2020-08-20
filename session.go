@@ -13,7 +13,6 @@ type Session struct {
 	statement *Statement
 	useMaster bool
 	logger    Logger
-	model     interface{}
 }
 
 // UseMaster enable use master
@@ -49,7 +48,26 @@ func (s *Session) FindOne(dest interface{}) error {
 
 // FindAll get all result
 func (s *Session) FindAll(dest interface{}) error {
-	return nil
+	s.initStatemnt()
+	scanner, err := NewScanner(dest)
+	if err != nil {
+		return err
+	}
+	if s.statement.table == "" {
+		s.statement.From(scanner.GetTableName())
+	}
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		return err
+	}
+	s.logger.Debugf("[Session FindALL] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	rows, err := s.QueryContext(s.ctx, sql, args...)
+	if err != nil {
+		return err
+	}
+	scanner.SetRows(rows)
+	return scanner.Convert()
 }
 
 // Insert create new record

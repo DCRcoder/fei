@@ -10,5 +10,5 @@ var (
 	StatementTypeNotSet         = errors.New("statement type not set")
 	ScannerRowsPointerNil       = errors.New("Scanner rows could not be nil pointer")
 	ScannerEntityNeedCanSet     = errors.New("Entity need can set")
-	ScannerEntiryTypeNotSupport = errors.New("Scanner Entity not support. it should be pointer or slice")
+	ScannerEntiryTypeNotSupport = errors.New("Scanner Entity not support. it should be struct or slice")
 )
