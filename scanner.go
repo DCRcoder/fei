@@ -7,16 +7,15 @@ import (
 )
 
 const (
-	feiColumnName = "fei_column"
+	feiColumnName = "fc_name"
 )
 
-// Scanner convert rows to model
+// Scanner convert rows to entity
 // Don't scan into interface{} but the type you would expect, the database/sql package converts the returned type for you then.
 type Scanner struct {
 	rows          *sql.Rows
 	fields        []string
 	entity        interface{}
-	entityType    reflect.Type
 	entityValue   reflect.Value
 	entityPointer reflect.Value
 	model         *Model
@@ -34,12 +33,11 @@ type Field struct {
 	Name   string
 	idx    int
 	Column reflect.StructField
-	Value  reflect.Value
 }
 
 // NewModel return new model instanc
 func NewModel(value reflect.Value) *Model {
-	m := &Model{}
+	m := &Model{Value: value}
 	_, ok := value.Type().MethodByName("TableName")
 	if ok {
 		vals := value.MethodByName("TableName").Call([]reflect.Value{})
@@ -81,13 +79,21 @@ func NewScanner(dest interface{}) (*Scanner, error) {
 	}
 	switch s.entityPointer.Kind() {
 	case reflect.Slice:
-		
+		t := reflect.New(s.entityPointer.Type().Elem().Elem())
+		s.model = NewModel(t)
 	case reflect.Struct:
 		s.model = NewModel(s.entityValue)
 	default:
 		return nil, ScannerEntiryTypeNotSupport
 	}
 	return s, nil
+}
+
+// Close close
+func (sc *Scanner) Close() {
+	if sc.rows != nil {
+		sc.rows.Close()
+	}
 }
 
 // SetRows set row
@@ -105,6 +111,11 @@ func (sc *Scanner) GetTableName() string {
 
 // Convert scan rows to dest
 func (sc *Scanner) Convert() error {
+	srcValue := make([]interface{}, len(sc.fields))
+	for i := 0; i < len(sc.fields); i++ {
+		var v interface{}
+		srcValue[i] = &v
+	}
 	if sc.rows == nil {
 		return ScannerRowsPointerNil
 	}
@@ -114,15 +125,34 @@ func (sc *Scanner) Convert() error {
 		return err
 	}
 	sc.fields = fields
-	switch sc.entityValue.Kind() {
+	switch sc.entityPointer.Kind() {
 	case reflect.Slice:
-		fmt.Println("i m slice")
-		return nil
-	case reflect.Ptr:
+		return sc.convertAll()
+	case reflect.Struct:
 		return sc.convertOne()
 	default:
 		return ScannerEntiryTypeNotSupport
 	}
+}
+
+func (sc *Scanner) convertAll() error {
+	dest := reflect.MakeSlice(sc.entityPointer.Type(), 0, 0)
+	for sc.rows.Next() {
+		srcValue := make([]interface{}, len(sc.fields))
+		for i := 0; i < len(sc.fields); i++ {
+			var v interface{}
+			srcValue[i] = &v
+		}
+		err := sc.rows.Scan(srcValue...)
+		if err != nil {
+			return err
+		}
+		t := reflect.New(sc.entityPointer.Type().Elem().Elem())
+		sc.SetEntity(srcValue, t.Elem())
+		dest = reflect.Append(dest, t)
+	}
+	sc.entityPointer.Set(dest)
+	return nil
 }
 
 func (sc *Scanner) convertOne() error {
@@ -136,14 +166,13 @@ func (sc *Scanner) convertOne() error {
 		if err != nil {
 			return err
 		}
-		sc.SetEntity(srcValue)
-		fmt.Println(sc.entity)
+		sc.SetEntity(srcValue, sc.entityPointer)
 	}
 	return nil
 }
 
 // SetEntity set entity
-func (sc *Scanner) SetEntity(srcValue []interface{}) error {
+func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 	tmpMap := make(map[string]interface{})
 	for i := 0; i < len(sc.fields); i++ {
 		field := sc.fields[i]
@@ -151,12 +180,11 @@ func (sc *Scanner) SetEntity(srcValue []interface{}) error {
 		tmpMap[field] = value
 	}
 	for name, field := range sc.model.Fields {
-		fmt.Println(field)
 		val, ok := tmpMap[name]
 		if !ok {
 			continue
 		}
-		ff := sc.entityPointer.Field(field.idx)
+		ff := dest.Field(field.idx)
 		rawVal := reflect.Indirect(reflect.ValueOf(val))
 		if rawVal.Interface() == nil {
 			continue

@@ -3,6 +3,7 @@ package fei
 import (
 	"context"
 	"database/sql"
+	"reflect"
 )
 
 // Session db conn session
@@ -29,6 +30,7 @@ func (s *Session) FindOne(dest interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer scanner.Close()
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
 	}
@@ -53,6 +55,10 @@ func (s *Session) FindAll(dest interface{}) error {
 	if err != nil {
 		return err
 	}
+	if scanner.entityPointer.Kind() != reflect.Slice {
+		return FindAllExpectSlice
+	}
+	defer scanner.Close()
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
 	}
@@ -60,7 +66,7 @@ func (s *Session) FindAll(dest interface{}) error {
 	if err != nil {
 		return err
 	}
-	s.logger.Debugf("[Session FindALL] sql: %s, args: %v", sql, args)
+	s.logger.Debugf("[Session FindAll] sql: %s, args: %v", sql, args)
 	s.initCtx()
 	rows, err := s.QueryContext(s.ctx, sql, args...)
 	if err != nil {
@@ -106,6 +112,7 @@ func (s *Session) Count() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	rows.Next()
 	rows.Scan(&count)
 	return count, nil
 }

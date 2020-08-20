@@ -24,9 +24,9 @@ func TestCount(t *testing.T) {
 	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
-	count, err := engine.NewSession().Select().From("codebook").Where(Eq{"name": "laojun"}).Count()
+	count, err := engine.NewSession().Select().From("codebook").Where(Eq{"name": "liubin"}).Count()
 	assert.Equal(t, err, nil)
-	assert.Equal(t, count, int64(0))
+	assert.Equal(t, count, int64(3))
 }
 
 func TestFindOne(t *testing.T) {
@@ -44,7 +44,9 @@ func TestFindAll(t *testing.T) {
 	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
-	err = engine.NewSession().Select().Where(Eq{"name": "liubin"}).FindAll(&c)
+	err = engine.NewSession().Select().Where(Eq{"name": "liubin"}).OrderBy("id desc").FindAll(&c)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, c[0].Name, "liubin")
+	assert.Equal(t, len(c), 2)
+	assert.Equal(t, c[1].Name, "liubin")
+	assert.Equal(t, c[1].Password, "qingning")
 }
