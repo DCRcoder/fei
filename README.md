@@ -90,5 +90,5 @@ func main() {
 ```
 
 ### TODO
-[ ] Transaction
-[ ] plugin
+- [ ] Transaction
+- [ ] plugin
