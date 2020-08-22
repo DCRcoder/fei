@@ -140,6 +140,22 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 			builder = builder.OrderBy(st.orderBys...)
 		}
 		return builder.ToSql()
+	case DeleteStatement:
+		builder := sq.Delete(st.table)
+		for _, c := range st.conditions {
+			builder = builder.Where(st.ConvertCondition(c.Expr))
+		}
+		if st.offset > 0 {
+			builder = builder.Offset(st.offset)
+		}
+		if st.limit > 0 {
+			builder = builder.Limit(st.limit)
+		}
+		if len(st.orderBys) > 0 {
+			builder = builder.OrderBy(st.orderBys...)
+		}
+		return builder.ToSql()
+
 	}
 	return "", nil, StatementTypeNotSet
 }

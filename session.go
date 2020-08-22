@@ -30,6 +30,9 @@ func (s *Session) FindOne(dest interface{}) error {
 	if err != nil {
 		return err
 	}
+	if scanner.entityPointer.Kind() != reflect.Struct {
+		return FindOneExpectStruct
+	}
 	defer scanner.Close()
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
@@ -78,17 +81,59 @@ func (s *Session) FindAll(dest interface{}) error {
 
 // Insert create new record
 func (s *Session) Insert(model interface{}) (int64, error) {
+	s.initStatemnt()
+	s.statement.Insert()
 	return 0, nil
 }
 
 // Update update one record
 func (s *Session) Update(model interface{}) (int64, error) {
+	s.initStatemnt()
+	s.statement.Update()
 	return 0, nil
 }
 
 // Delete delete one record
-func (s *Session) Delete(model interface{}) (int64, error) {
-	return 0, nil
+func (s *Session) Delete(dest interface{}) (int64, error) {
+	s.initStatemnt()
+	s.statement.Delete()
+	scanner, err := NewScanner(dest)
+	if err != nil {
+		return 0, err
+	}
+	if s.statement.table == "" {
+		s.statement.From(scanner.GetTableName())
+	}
+	pks := make([]interface{}, 0)
+	if scanner.model.PkName == "" {
+		return 0, ModelMissingPrimaryKey
+	}
+	if scanner.entityPointer.Kind() == reflect.Slice {
+		for i := 0; i < scanner.entityPointer.Len(); i++ {
+			sub := scanner.entityPointer.Index(i)
+			if sub.Kind() == reflect.Ptr {
+				pks = append(pks, sub.Elem().Field(scanner.model.PkIdx).Interface())
+			} else {
+				pks = append(pks, sub.Field(scanner.model.PkIdx).Interface())
+			}
+		}
+	} else if scanner.entityPointer.Kind() == reflect.Struct {
+		pks = append(pks, scanner.entityPointer.Field(scanner.model.PkIdx).Interface())
+	} else {
+		return 0, DeleteExpectSliceOrStruct
+	}
+	s.Where(Eq{scanner.model.PkName: pks})
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		return 0, err
+	}
+	s.logger.Debugf("[Session Delete] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	sResult, err := s.ExecContext(s.ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return sResult.RowsAffected()
 }
 
 func (s *Session) initCtx() {
@@ -199,4 +244,14 @@ func (s *Session) QueryRawContext(ctx context.Context, query string, args ...int
 		return s.db.Master().QueryRowContext(ctx, query, args...)
 	}
 	return s.db.Slave().QueryRowContext(ctx, query, args...)
+}
+
+// Exec execute
+func (s *Session) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return s.db.Master().Exec(query, args...)
+}
+
+// ExecContext execute with context
+func (s *Session) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return s.db.Master().ExecContext(ctx, query, args...)
 }

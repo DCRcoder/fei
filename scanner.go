@@ -3,12 +3,14 @@ package fei
 import (
 	"database/sql"
 	"reflect"
+	"strings"
 
 	"github.com/spf13/cast"
 )
 
 const (
-	feiColumnName = "fc_name"
+	feiColumnName = "columnName"
+	feiPk         = "pk"
 )
 
 // Scanner convert rows to entity
@@ -27,13 +29,17 @@ type Model struct {
 	TableName string
 	Value     reflect.Value
 	Fields    map[string]*Field
+	PkName    string
+	PkIdx     int
 }
 
 // Field describe table field
 type Field struct {
-	Name   string
-	idx    int
-	Column reflect.StructField
+	Name         string
+	idx          int
+	Column       reflect.StructField
+	Tags         map[string]string
+	IsPrimaryKey bool
 }
 
 // NewModel return new model instanc
@@ -52,16 +58,33 @@ func NewModel(value reflect.Value) *Model {
 	m.Fields = make(map[string]*Field)
 	elem := value.Elem()
 	for i := 0; i < elem.NumField(); i++ {
+		field := &Field{}
 		df := elem.Type().Field(i)
 		fieldName := ToSnakeCase(df.Name)
-		if df.Tag.Get(feiColumnName) != "" {
-			fieldName = df.Tag.Get(feiColumnName)
+		tags := make(map[string]string)
+		tag := strings.Split(df.Tag.Get("fei"), ",")
+		for _, t := range tag {
+			ts := strings.Split(t, "=")
+			if len(ts) == 1 {
+				if ts[0] == feiPk {
+					field.IsPrimaryKey = true
+				}
+			} else if len(ts) == 2 {
+				tags[ts[0]] = ts[1]
+				if ts[0] == feiColumnName {
+					fieldName = ts[1]
+				}
+			}
 		}
-		m.Fields[fieldName] = &Field{
-			Name:   fieldName,
-			idx:    i,
-			Column: df,
+		field.Name = fieldName
+		field.idx = i
+		field.Column = df
+		field.Tags = tags
+		if field.IsPrimaryKey == true {
+			m.PkName = fieldName
+			m.PkIdx = i
 		}
+		m.Fields[fieldName] = field
 	}
 	return m
 }
@@ -74,13 +97,18 @@ func NewScanner(dest interface{}) (*Scanner, error) {
 		entityValue:   entityValue,
 		entityPointer: reflect.Indirect(entityValue),
 	}
-	if !s.entityPointer.CanSet() {
-		return nil, ScannerEntityNeedCanSet
-	}
+
 	switch s.entityPointer.Kind() {
 	case reflect.Slice:
-		t := reflect.New(s.entityPointer.Type().Elem().Elem())
-		s.model = NewModel(t)
+		if s.entityPointer.Type().Elem().Kind() == reflect.Struct {
+			t := reflect.New(s.entityPointer.Type().Elem())
+			s.model = NewModel(t)
+		} else if s.entityPointer.Type().Elem().Kind() == reflect.Ptr {
+			t := reflect.New(s.entityPointer.Type().Elem().Elem())
+			s.model = NewModel(t)
+		} else {
+			return nil, ModelNotSupportType
+		}
 	case reflect.Struct:
 		s.model = NewModel(s.entityValue)
 	default:
@@ -111,6 +139,9 @@ func (sc *Scanner) GetTableName() string {
 
 // Convert scan rows to dest
 func (sc *Scanner) Convert() error {
+	if !sc.entityPointer.CanSet() {
+		return ScannerEntityNeedCanSet
+	}
 	srcValue := make([]interface{}, len(sc.fields))
 	for i := 0; i < len(sc.fields); i++ {
 		var v interface{}

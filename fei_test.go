@@ -20,7 +20,7 @@ var (
 
 type CodeBook struct {
 	Name      string
-	ID        int64
+	ID        int64 `fei:"pk,columnName=id"`
 	Password  string
 	Remarks   *string
 	CreatedAt string
@@ -48,8 +48,6 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	prepareTestDatabase()
-
 	os.Exit(m.Run())
 }
 
@@ -60,6 +58,7 @@ func prepareTestDatabase() {
 }
 
 func TestCount(t *testing.T) {
+	prepareTestDatabase()
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
@@ -69,6 +68,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestFindOne(t *testing.T) {
+	prepareTestDatabase()
 	c := CodeBook{}
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
@@ -80,6 +80,7 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestFindOneColumn(t *testing.T) {
+	prepareTestDatabase()
 	c := CodeBook{}
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
@@ -92,6 +93,7 @@ func TestFindOneColumn(t *testing.T) {
 }
 
 func TestFindAll(t *testing.T) {
+	prepareTestDatabase()
 	c := make([]*CodeBook, 0)
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
@@ -101,4 +103,27 @@ func TestFindAll(t *testing.T) {
 	assert.Equal(t, len(c), 3)
 	assert.Equal(t, c[1].Name, "liubin")
 	assert.Equal(t, c[1].Password, "qingning")
+}
+
+func TestDeleteOne(t *testing.T) {
+	prepareTestDatabase()
+	c := &CodeBook{ID: 7}
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Delete(c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(1))
+}
+
+func TestDeleteMany(t *testing.T) {
+	prepareTestDatabase()
+	c := make([]CodeBook, 0)
+	c = append(c, CodeBook{ID: 7}, CodeBook{ID: 1}, CodeBook{ID: 8})
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Delete(c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(2))
 }
