@@ -1,8 +1,6 @@
 package fei
 
 import (
-	"fmt"
-
 	sq "github.com/Masterminds/squirrel"
 )
 
@@ -117,7 +115,6 @@ func (st *Statement) OrderBy(orderby ...string) *Statement {
 // Values set values
 func (st *Statement) Values(val []interface{}) *Statement {
 	st.values = append(st.values, val)
-	fmt.Println(st.values)
 	return st
 }
 
