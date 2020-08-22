@@ -12,7 +12,7 @@ import (
 
 func main() {
     // init db
-	engine, err := NewEngine("mysql", dbAddr)
+    engine, err := NewEngine("mysql", dbAddr)
     // init db 读写分离
     engine, err := NewEngineWithMS("mysql", masterAddr, []slaveAddr)
     // init db with config
