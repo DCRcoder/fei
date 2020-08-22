@@ -5,7 +5,7 @@
 mysql experimental ORM just for fun. it base on [squirrel](github.com/Masterminds/squirrel)
 
 ### Init
-```
+```go
 import (
     	_ "github.com/go-sql-driver/mysql"
 )
@@ -31,7 +31,7 @@ func main() {
 ```
 
 ### Session
-```
+```go
     session := engine.NewSession()
     // with context
     session := engine.NewSessionCtx(ctx)
