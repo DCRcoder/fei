@@ -2,7 +2,6 @@ package fei
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -21,11 +20,11 @@ var (
 
 type CodeBook struct {
 	Name      string
-	ID        string
+	ID        int64
 	Password  string
 	Remarks   *string
 	CreatedAt string
-	UpdatedAt *time.Time
+	UpdatedAt time.Time
 }
 
 func (c *CodeBook) TableName() string {
@@ -49,6 +48,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	prepareTestDatabase()
+
 	os.Exit(m.Run())
 }
 
@@ -59,7 +60,6 @@ func prepareTestDatabase() {
 }
 
 func TestCount(t *testing.T) {
-	prepareTestDatabase()
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
@@ -75,9 +75,20 @@ func TestFindOne(t *testing.T) {
 	assert.Equal(t, err, nil)
 	err = engine.NewSession().Select().Where(Eq{"name": "laojun"}).FindOne(&c)
 	assert.Equal(t, err, nil)
-	fmt.Println(c)
 	assert.Equal(t, c.Name, "laojun")
 	assert.Equal(t, *c.Remarks, "qingning")
+}
+
+func TestFindOneColumn(t *testing.T) {
+	c := CodeBook{}
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	err = engine.NewSession().Select("name").Where(Eq{"name": "laojun"}).FindOne(&c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, c.Name, "laojun")
+	assert.Equal(t, c.ID, int64(0))
+	assert.Equal(t, c.Remarks, (*string)(nil))
 }
 
 func TestFindAll(t *testing.T) {

@@ -204,7 +204,7 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 			vv := reflect.ValueOf(rawValInterface)
 			if vv.IsValid() {
 				if vv.Type().ConvertibleTo(ff.Type()) {
-					ff.Set(rawVal.Convert(ff.Type()))
+					ff.Set(vv.Convert(ff.Type()))
 				} else {
 					if ff.Kind() == reflect.Ptr {
 						if ff.IsNil() {
