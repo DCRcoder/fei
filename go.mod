@@ -9,7 +9,12 @@ require (
 	github.com/alecthomas/repr v0.0.0-20200325044227-4184120f674c // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/go-testfixtures/testfixtures/v3 v3.4.0
+	github.com/google/btree v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/montanaflynn/stats v0.6.3 // indirect
+	github.com/pingcap/kvproto v0.0.0-20200821061039-7771f65e7756 // indirect
+	github.com/pingcap/log v0.0.0-20200511115504-543df19646ad // indirect
+	github.com/pingcap/pd v2.1.19+incompatible
 	github.com/rs/zerolog v1.19.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cast v1.3.1

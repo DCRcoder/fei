@@ -170,6 +170,28 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 			builder = builder.Values(v...)
 		}
 		return builder.ToSql()
+	case UpdateStatement:
+		builder := sq.Update(st.table)
+		for _, v := range st.values {
+			uval := make(map[string]interface{})
+			for i, f := range st.columns {
+				uval[f] = v[i]
+			}
+			builder = builder.SetMap(uval)
+		}
+		for _, c := range st.conditions {
+			builder = builder.Where(st.ConvertCondition(c.Expr))
+		}
+		if st.offset > 0 {
+			builder = builder.Offset(st.offset)
+		}
+		if st.limit > 0 {
+			builder = builder.Limit(st.limit)
+		}
+		if len(st.orderBys) > 0 {
+			builder = builder.OrderBy(st.orderBys...)
+		}
+		return builder.ToSql()
 	}
 	return "", nil, StatementTypeNotSet
 }

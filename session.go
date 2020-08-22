@@ -138,7 +138,7 @@ func (s *Session) Insert(dest interface{}) (int64, error) {
 		}
 		s.statement.Values(val)
 	} else {
-		return 0, DeleteExpectSliceOrStruct
+		return 0, InsertExpectSliceOrStruct
 	}
 	sql, args, err := s.statement.ToSQL()
 	if err != nil {
@@ -154,10 +154,88 @@ func (s *Session) Insert(dest interface{}) (int64, error) {
 }
 
 // Update update one record
-func (s *Session) Update(model interface{}) (int64, error) {
+func (s *Session) Update(dest interface{}) (int64, error) {
 	s.initStatemnt()
 	s.statement.Update()
-	return 0, nil
+	scanner, err := NewScanner(dest)
+	if err != nil {
+		return 0, err
+	}
+	defer scanner.Close()
+	if s.statement.table == "" {
+		s.statement.From(scanner.GetTableName())
+	}
+	updateFields := make([]string, 0)
+	pks := make([]interface{}, 0)
+	for n, f := range scanner.Model.Fields {
+		if !f.IsReadOnly {
+			updateFields = append(updateFields, n)
+		}
+	}
+	s.Columns(updateFields...)
+	if scanner.entityPointer.Kind() == reflect.Slice {
+		for i := 0; i < scanner.entityPointer.Len(); i++ {
+			val := make([]interface{}, 0)
+			sub := scanner.entityPointer.Index(i)
+			if sub.Kind() == reflect.Ptr {
+				subElem := sub.Elem()
+				for _, fn := range updateFields {
+					f, ok := scanner.Model.Fields[fn]
+					if !ok {
+						continue
+					}
+					fv := subElem.Field(f.idx)
+					if f.IsPrimaryKey {
+						pks = append(pks, fv.Interface())
+					}
+					val = append(val, fv.Interface())
+				}
+
+			} else {
+				for _, fn := range updateFields {
+					f, ok := scanner.Model.Fields[fn]
+					if !ok {
+						continue
+					}
+					fv := sub.Field(f.idx)
+					if f.IsPrimaryKey {
+						pks = append(pks, fv.Interface())
+					}
+					val = append(val, fv.Interface())
+				}
+			}
+			s.statement.Values(val)
+		}
+
+	} else if scanner.entityPointer.Kind() == reflect.Struct {
+		val := make([]interface{}, 0)
+		for _, fn := range updateFields {
+			f, ok := scanner.Model.Fields[fn]
+			if !ok {
+				continue
+			}
+			fv := scanner.entityPointer.Field(f.idx)
+			if f.IsPrimaryKey {
+				pks = append(pks, fv.Interface())
+			}
+			val = append(val, fv.Interface())
+		}
+		s.statement.Values(val)
+	} else {
+		return 0, UpdateExpectSliceOrStruct
+	}
+	s.Where(Eq{scanner.Model.PkName: pks})
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		return 0, err
+	}
+	s.logger.Debugf("[Session Update] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	sResult, err := s.ExecContext(s.ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return sResult.RowsAffected()
 }
 
 // Delete delete one record
@@ -226,7 +304,10 @@ func (s *Session) Count() (int64, error) {
 		return 0, err
 	}
 	rows.Next()
-	rows.Scan(&count)
+	err = rows.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
 	return count, nil
 }
 

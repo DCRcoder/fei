@@ -159,3 +159,18 @@ func TestInsertMany(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, nc.Password, "xiangjishi")
 }
+
+func TestUpdateOne(t *testing.T) {
+	prepareTestDatabase()
+	c := &CodeBook{ID: 2, Name: "nami", Password: "lufei", Remarks: nil}
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Update(c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(1))
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "nami"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "lufei")
+}
