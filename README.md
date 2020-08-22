@@ -46,7 +46,7 @@ func main() {
     engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).FindOne(user) // need pointer
     // fineAll
     users := make([]*User, 0)
-    engine.NewSession()engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).FindAll(&user) // need pointer
+    engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).FindAll(&user) // need pointer
 ```
 
 ### Insert
@@ -63,10 +63,10 @@ func main() {
 ```go
     // insert a record
     user := &User{}
-    engine.NewSession().Insert(user)
+    engine.NewSession().Update(user)
     // insert multiple
     users := []*User{}
-    engine.NewSession().Insert(users)
+    engine.NewSession().Update(users)
 
 ```
 
@@ -90,6 +90,5 @@ func main() {
 ```
 
 ### TODO
-[ ]Transaction
-[ ]plugin
-
+[ ] Transaction
+[ ] plugin
