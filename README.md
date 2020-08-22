@@ -2,7 +2,7 @@
 # Fei(胐胐)
 注: 又北四十里，曰霍山，其木多榖。有兽焉，其状如狸，而白尾，有鬣，名曰腓腓，养之可以已忧。——《山海经·卷五·中山经》
 
-mysql experimental ORM just for fun
+mysql experimental ORM just for fun. it base on [squirrel](github.com/Masterminds/squirrel)
 
 ### Init
 ```
@@ -61,10 +61,10 @@ func main() {
 
 ### Update
 ```go
-    // insert a record
+    // update a record
     user := &User{}
     engine.NewSession().Update(user)
-    // insert multiple
+    // update multiple
     users := []*User{}
     engine.NewSession().Update(users)
 
@@ -72,10 +72,10 @@ func main() {
 
 ### Delete
 ```go
-    // insert a record
+    // delete a record
     user := &User{}
     engine.NewSession().Delete(user)
-    // insert multiple
+    // delete multiple
     users := []*User{}
     engine.NewSession().Delete(users)
 ```
