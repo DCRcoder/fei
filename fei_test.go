@@ -1,27 +1,66 @@
 package fei
 
 import (
+	"database/sql"
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/alecthomas/assert"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-testfixtures/testfixtures/v3"
+)
+
+const dbAddr = "root@/test?charset=utf8"
+
+var (
+	db       *sql.DB
+	fixtures *testfixtures.Loader
 )
 
 type CodeBook struct {
 	Name      string
-	ID        int64
+	ID        string
 	Password  string
 	Remarks   *string
 	CreatedAt string
-	UpdatedAt string
+	UpdatedAt *time.Time
 }
 
 func (c *CodeBook) TableName() string {
 	return "codebook"
 }
 
+func TestMain(m *testing.M) {
+	var err error
+
+	db, err := sql.Open("mysql", dbAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	fixtures, err = testfixtures.New(
+		testfixtures.Database(db),
+		testfixtures.Dialect("mysql"),
+		testfixtures.Directory("testdata"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(m.Run())
+}
+
+func prepareTestDatabase() {
+	if err := fixtures.Load(); err != nil {
+		panic(err)
+	}
+}
+
 func TestCount(t *testing.T) {
-	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
 	count, err := engine.NewSession().Select().From("codebook").Where(Eq{"name": "liubin"}).Count()
@@ -31,22 +70,24 @@ func TestCount(t *testing.T) {
 
 func TestFindOne(t *testing.T) {
 	c := CodeBook{}
-	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
+	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
-	err = engine.NewSession().Select().Where(Eq{"name": "liubin"}).FindOne(&c)
+	err = engine.NewSession().Select().Where(Eq{"name": "laojun"}).FindOne(&c)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, c.Name, "liubin")
+	fmt.Println(c)
+	assert.Equal(t, c.Name, "laojun")
+	assert.Equal(t, *c.Remarks, "qingning")
 }
 
 func TestFindAll(t *testing.T) {
 	c := make([]*CodeBook, 0)
-	engine, err := NewEngine("mysql", "root@/test?charset=utf8")
+	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
 	err = engine.NewSession().Select().Where(Eq{"name": "liubin"}).OrderBy("id desc").FindAll(&c)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, len(c), 2)
+	assert.Equal(t, len(c), 3)
 	assert.Equal(t, c[1].Name, "liubin")
 	assert.Equal(t, c[1].Password, "qingning")
 }

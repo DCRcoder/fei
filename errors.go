@@ -11,5 +11,5 @@ var (
 	ScannerRowsPointerNil       = errors.New("Scanner rows could not be nil pointer")
 	ScannerEntityNeedCanSet     = errors.New("Entity need can set")
 	ScannerEntiryTypeNotSupport = errors.New("Scanner Entity not support. it should be struct or slice")
-	FindAllExpectSlice          = errors.New("FindAll method expect slice just like []*model")
+	FindAllExpectSlice          = errors.New("FindAll method expect slice like []*model")
 )

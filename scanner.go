@@ -2,8 +2,9 @@ package fei
 
 import (
 	"database/sql"
-	"fmt"
 	"reflect"
+
+	"github.com/spf13/cast"
 )
 
 const (
@@ -57,8 +58,9 @@ func NewModel(value reflect.Value) *Model {
 			fieldName = df.Tag.Get(feiColumnName)
 		}
 		m.Fields[fieldName] = &Field{
-			Name: fieldName,
-			idx:  i,
+			Name:   fieldName,
+			idx:    i,
+			Column: df,
 		}
 	}
 	return m
@@ -67,13 +69,11 @@ func NewModel(value reflect.Value) *Model {
 // NewScanner return new scanner instance
 func NewScanner(dest interface{}) (*Scanner, error) {
 	entityValue := reflect.ValueOf(dest)
-	fmt.Println(entityValue.Kind())
 	s := &Scanner{
 		entity:        dest,
 		entityValue:   entityValue,
 		entityPointer: reflect.Indirect(entityValue),
 	}
-	fmt.Println(s.entityPointer.Kind())
 	if !s.entityPointer.CanSet() {
 		return nil, ScannerEntityNeedCanSet
 	}
@@ -120,7 +120,6 @@ func (sc *Scanner) Convert() error {
 		return ScannerRowsPointerNil
 	}
 	fields, err := sc.rows.Columns()
-	fmt.Println(fields)
 	if err != nil {
 		return err
 	}
@@ -175,9 +174,9 @@ func (sc *Scanner) convertOne() error {
 func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 	tmpMap := make(map[string]interface{})
 	for i := 0; i < len(sc.fields); i++ {
-		field := sc.fields[i]
-		value := srcValue[i]
-		tmpMap[field] = value
+		f := sc.fields[i]
+		v := srcValue[i]
+		tmpMap[f] = v
 	}
 	for name, field := range sc.model.Fields {
 		val, ok := tmpMap[name]
@@ -189,33 +188,34 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 		if rawVal.Interface() == nil {
 			continue
 		}
-		rawValueType := reflect.TypeOf(rawVal.Interface())
-		vv := reflect.ValueOf(rawVal.Interface())
-		fmt.Println(val, name, rawVal, rawValueType.Kind(), rawValueType, ff.Kind())
+		rawValInterface := rawVal.Interface()
 		switch ff.Kind() {
 		case reflect.String:
-			switch data := rawVal.Interface().(type) {
-			case string:
-				ff.SetString(data)
-			case []uint8:
-				ff.SetString(string(data))
-			}
+			ff.SetString(cast.ToString(rawValInterface))
+		case reflect.Bool:
+			ff.SetBool(cast.ToBool(rawValInterface))
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			switch rawValueType.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				ff.SetInt(vv.Int())
-			}
+			ff.SetInt(cast.ToInt64(rawValInterface))
 		case reflect.Float32, reflect.Float64:
-			switch rawValueType.Kind() {
-			case reflect.Float32, reflect.Float64:
-				ff.SetFloat(vv.Float())
-			}
+			ff.SetFloat(cast.ToFloat64(rawValInterface))
 		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-			switch rawValueType.Kind() {
-			case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-				ff.SetUint(vv.Uint())
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				ff.SetUint(uint64(vv.Int()))
+			ff.SetUint(cast.ToUint64(rawValInterface))
+		default:
+			vv := reflect.ValueOf(rawValInterface)
+			if vv.IsValid() {
+				if vv.Type().ConvertibleTo(ff.Type()) {
+					ff.Set(rawVal.Convert(ff.Type()))
+				} else {
+					if ff.Kind() == reflect.Ptr {
+						if ff.IsNil() {
+							ff.Set(reflect.New(field.Column.Type.Elem()))
+						}
+						ffElem := ff.Elem()
+						if vv.Type().ConvertibleTo(ffElem.Type()) {
+							ffElem.Set(vv.Convert(ffElem.Type()))
+						}
+					}
+				}
 			}
 		}
 	}

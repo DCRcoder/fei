@@ -2,6 +2,8 @@ package fei
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"sync/atomic"
 )
 
@@ -13,9 +15,16 @@ type DB struct {
 	EnableMS bool
 }
 
+func formatDSN(dsn string) string {
+	if strings.Index(dsn, "parseTime=true") <= 0 {
+		return fmt.Sprintf("%s&%s", dsn, "parseTime=true")
+	}
+	return dsn
+}
+
 // Open return DB instance
 func Open(driverName, dataSourceName string) (*DB, error) {
-	db, err := sql.Open(driverName, dataSourceName)
+	db, err := sql.Open(driverName, formatDSN(dataSourceName))
 	if err != nil {
 		return nil, err
 	}
@@ -24,13 +33,13 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 
 // OpenMasterAndSlaves return DB instance
 func OpenMasterAndSlaves(driverName, master string, slaves []string) (*DB, error) {
-	mdb, err := sql.Open(driverName, master)
+	mdb, err := sql.Open(driverName, formatDSN(master))
 	if err != nil {
 		return nil, err
 	}
 	sdbs := make([]*sql.DB, 0)
 	for _, s := range slaves {
-		sdb, err := sql.Open(driverName, s)
+		sdb, err := sql.Open(driverName, formatDSN(s))
 		if err != nil {
 			return nil, err
 		}
