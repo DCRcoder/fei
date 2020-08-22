@@ -1,6 +1,8 @@
 package fei
 
 import (
+	"fmt"
+
 	sq "github.com/Masterminds/squirrel"
 )
 
@@ -24,6 +26,7 @@ type Statement struct {
 	offset     uint64
 	orderBys   []string
 	conditions []Condition
+	values     [][]interface{}
 }
 
 // Reset Statement Reset
@@ -35,6 +38,7 @@ func (st *Statement) Reset() {
 	st.limit = 0
 	st.conditions = make([]Condition, 0)
 	st.orderBys = make([]string, 0)
+	st.values = make([][]interface{}, 0)
 }
 
 // Select set select statment
@@ -110,6 +114,13 @@ func (st *Statement) OrderBy(orderby ...string) *Statement {
 	return st
 }
 
+// Values set values
+func (st *Statement) Values(val []interface{}) *Statement {
+	st.values = append(st.values, val)
+	fmt.Println(st.values)
+	return st
+}
+
 // ToSQL gen SQl
 func (st *Statement) ToSQL() (string, []interface{}, error) {
 	if st.table == "" {
@@ -155,7 +166,13 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 			builder = builder.OrderBy(st.orderBys...)
 		}
 		return builder.ToSql()
-
+	case InsertStatement:
+		builder := sq.Insert(st.table)
+		builder = builder.Columns(st.columns...)
+		for _, v := range st.values {
+			builder = builder.Values(v...)
+		}
+		return builder.ToSql()
 	}
 	return "", nil, StatementTypeNotSet
 }

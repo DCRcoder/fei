@@ -23,8 +23,8 @@ type CodeBook struct {
 	ID        int64 `fei:"pk,columnName=id"`
 	Password  string
 	Remarks   *string
-	CreatedAt string
-	UpdatedAt time.Time
+	CreatedAt string    `fei:"readOnly"`
+	UpdatedAt time.Time `fei:"readOnly"`
 }
 
 func (c *CodeBook) TableName() string {
@@ -126,4 +126,36 @@ func TestDeleteMany(t *testing.T) {
 	rowcount, err := engine.NewSession().Delete(c)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, rowcount, int64(2))
+}
+
+func TestInsertOne(t *testing.T) {
+	prepareTestDatabase()
+	c := &CodeBook{Name: "lufei", Password: "lufei", Remarks: nil}
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Insert(c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(1))
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "lufei"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "lufei")
+}
+
+func TestInsertMany(t *testing.T) {
+	prepareTestDatabase()
+	cc := make([]*CodeBook, 0)
+	cc = append(cc, &CodeBook{Name: "xiangjishi", Password: "xiangjishi"})
+	cc = append(cc, &CodeBook{Name: "suolong", Password: "suolong"})
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Insert(&cc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(2))
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "xiangjishi"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "xiangjishi")
 }

@@ -80,10 +80,77 @@ func (s *Session) FindAll(dest interface{}) error {
 }
 
 // Insert create new record
-func (s *Session) Insert(model interface{}) (int64, error) {
+func (s *Session) Insert(dest interface{}) (int64, error) {
 	s.initStatemnt()
 	s.statement.Insert()
-	return 0, nil
+	scanner, err := NewScanner(dest)
+	if err != nil {
+		return 0, err
+	}
+	defer scanner.Close()
+	if s.statement.table == "" {
+		s.statement.From(scanner.GetTableName())
+	}
+	insertFields := make([]string, 0)
+	for n, f := range scanner.Model.Fields {
+		if !f.IsReadOnly {
+			insertFields = append(insertFields, n)
+		}
+	}
+	s.Columns(insertFields...)
+	if scanner.entityPointer.Kind() == reflect.Slice {
+		for i := 0; i < scanner.entityPointer.Len(); i++ {
+			val := make([]interface{}, 0)
+			sub := scanner.entityPointer.Index(i)
+			if sub.Kind() == reflect.Ptr {
+				subElem := sub.Elem()
+				for _, fn := range insertFields {
+					f, ok := scanner.Model.Fields[fn]
+					if !ok {
+						continue
+					}
+					fv := subElem.Field(f.idx)
+					val = append(val, fv.Interface())
+				}
+
+			} else {
+				for _, fn := range insertFields {
+					f, ok := scanner.Model.Fields[fn]
+					if !ok {
+						continue
+					}
+					fv := sub.Field(f.idx)
+					val = append(val, fv.Interface())
+				}
+			}
+			s.statement.Values(val)
+		}
+
+	} else if scanner.entityPointer.Kind() == reflect.Struct {
+		val := make([]interface{}, 0)
+		for _, fn := range insertFields {
+			f, ok := scanner.Model.Fields[fn]
+			if !ok {
+				continue
+			}
+			fv := scanner.entityPointer.Field(f.idx)
+			val = append(val, fv.Interface())
+		}
+		s.statement.Values(val)
+	} else {
+		return 0, DeleteExpectSliceOrStruct
+	}
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		return 0, err
+	}
+	s.logger.Debugf("[Session Insert] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	sResult, err := s.ExecContext(s.ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return sResult.RowsAffected()
 }
 
 // Update update one record
@@ -101,28 +168,29 @@ func (s *Session) Delete(dest interface{}) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer scanner.Close()
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
 	}
 	pks := make([]interface{}, 0)
-	if scanner.model.PkName == "" {
+	if scanner.Model.PkName == "" {
 		return 0, ModelMissingPrimaryKey
 	}
 	if scanner.entityPointer.Kind() == reflect.Slice {
 		for i := 0; i < scanner.entityPointer.Len(); i++ {
 			sub := scanner.entityPointer.Index(i)
 			if sub.Kind() == reflect.Ptr {
-				pks = append(pks, sub.Elem().Field(scanner.model.PkIdx).Interface())
+				pks = append(pks, sub.Elem().Field(scanner.Model.PkIdx).Interface())
 			} else {
-				pks = append(pks, sub.Field(scanner.model.PkIdx).Interface())
+				pks = append(pks, sub.Field(scanner.Model.PkIdx).Interface())
 			}
 		}
 	} else if scanner.entityPointer.Kind() == reflect.Struct {
-		pks = append(pks, scanner.entityPointer.Field(scanner.model.PkIdx).Interface())
+		pks = append(pks, scanner.entityPointer.Field(scanner.Model.PkIdx).Interface())
 	} else {
 		return 0, DeleteExpectSliceOrStruct
 	}
-	s.Where(Eq{scanner.model.PkName: pks})
+	s.Where(Eq{scanner.Model.PkName: pks})
 	sql, args, err := s.statement.ToSQL()
 	if err != nil {
 		return 0, err

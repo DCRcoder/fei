@@ -11,6 +11,7 @@ import (
 const (
 	feiColumnName = "columnName"
 	feiPk         = "pk"
+	feiReadonly   = "readOnly"
 )
 
 // Scanner convert rows to entity
@@ -21,7 +22,7 @@ type Scanner struct {
 	entity        interface{}
 	entityValue   reflect.Value
 	entityPointer reflect.Value
-	model         *Model
+	Model         *Model
 }
 
 // Model describe table struct
@@ -40,6 +41,7 @@ type Field struct {
 	Column       reflect.StructField
 	Tags         map[string]string
 	IsPrimaryKey bool
+	IsReadOnly   bool
 }
 
 // NewModel return new model instanc
@@ -68,6 +70,9 @@ func NewModel(value reflect.Value) *Model {
 			if len(ts) == 1 {
 				if ts[0] == feiPk {
 					field.IsPrimaryKey = true
+				}
+				if ts[0] == feiReadonly {
+					field.IsReadOnly = true
 				}
 			} else if len(ts) == 2 {
 				tags[ts[0]] = ts[1]
@@ -102,15 +107,15 @@ func NewScanner(dest interface{}) (*Scanner, error) {
 	case reflect.Slice:
 		if s.entityPointer.Type().Elem().Kind() == reflect.Struct {
 			t := reflect.New(s.entityPointer.Type().Elem())
-			s.model = NewModel(t)
+			s.Model = NewModel(t)
 		} else if s.entityPointer.Type().Elem().Kind() == reflect.Ptr {
 			t := reflect.New(s.entityPointer.Type().Elem().Elem())
-			s.model = NewModel(t)
+			s.Model = NewModel(t)
 		} else {
 			return nil, ModelNotSupportType
 		}
 	case reflect.Struct:
-		s.model = NewModel(s.entityValue)
+		s.Model = NewModel(s.entityValue)
 	default:
 		return nil, ScannerEntiryTypeNotSupport
 	}
@@ -131,8 +136,8 @@ func (sc *Scanner) SetRows(rows *sql.Rows) {
 
 // GetTableName try get table from dest
 func (sc *Scanner) GetTableName() string {
-	if sc.model != nil {
-		return sc.model.TableName
+	if sc.Model != nil {
+		return sc.Model.TableName
 	}
 	return ""
 }
@@ -209,7 +214,7 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 		v := srcValue[i]
 		tmpMap[f] = v
 	}
-	for name, field := range sc.model.Fields {
+	for name, field := range sc.Model.Fields {
 		val, ok := tmpMap[name]
 		if !ok {
 			continue
