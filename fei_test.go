@@ -2,7 +2,6 @@ package fei
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"testing"
 	"time"
