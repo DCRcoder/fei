@@ -2,7 +2,7 @@
 # Fei(胐胐)
 注: 又北四十里，曰霍山，其木多榖。有兽焉，其状如狸，而白尾，有鬣，名曰腓腓，养之可以已忧。——《山海经·卷五·中山经》
 
-mysql experimental ORM just for fun. it base on [squirrel](https://github.com/Masterminds/squirrel)
+mysql experimental ORM. it base on [squirrel](https://github.com/Masterminds/squirrel)
 
 ### Init
 ```go
@@ -80,7 +80,7 @@ func main() {
     engine.NewSession().Delete(users)
 ```
 
-### sql driver also support
+### Use like normal sql
 ```go
     // you can also use sql Query, Exec
     engine.NewSession().Query("select * from user")
