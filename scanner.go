@@ -2,10 +2,10 @@ package fei
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
-
-	"github.com/spf13/cast"
 )
 
 const (
@@ -221,39 +221,235 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 		}
 		ff := dest.Field(field.idx)
 		rawVal := reflect.Indirect(reflect.ValueOf(val))
-		if rawVal.Interface() == nil {
+		rawValInterface := rawVal.Interface()
+		if rawValInterface == nil {
 			continue
 		}
-		rawValInterface := rawVal.Interface()
 		switch ff.Kind() {
 		case reflect.String:
-			ff.SetString(cast.ToString(rawValInterface))
+			switch d := rawValInterface.(type) {
+			case string:
+				ff.SetString(d)
+			case bool:
+				ff.SetString(strconv.FormatBool(d))
+			case float64:
+				ff.SetString(strconv.FormatFloat(d, 'f', -1, 64))
+			case float32:
+				ff.SetString(strconv.FormatFloat(float64(d), 'f', -1, 32))
+			case int:
+				ff.SetString(strconv.FormatInt(int64(d), 10))
+			case int8:
+				ff.SetString(strconv.FormatInt(int64(d), 10))
+			case int16:
+				ff.SetString(strconv.FormatInt(int64(d), 10))
+			case int32:
+				ff.SetString(strconv.FormatInt(int64(d), 10))
+			case int64:
+				ff.SetString(strconv.FormatInt(d, 10))
+			case uint:
+				ff.SetString(strconv.FormatUint(uint64(d), 10))
+			case uint8:
+				ff.SetString(strconv.FormatUint(uint64(d), 10))
+			case uint16:
+				ff.SetString(strconv.FormatUint(uint64(d), 10))
+			case uint32:
+				ff.SetString(strconv.FormatUint(uint64(d), 10))
+			case uint64:
+				ff.SetString(strconv.FormatUint(uint64(d), 10))
+			case []byte:
+				ff.SetString(string(d))
+			default:
+				sc.defaultConvert(rawValInterface, ff, field)
+			}
 		case reflect.Bool:
-			ff.SetBool(cast.ToBool(rawValInterface))
+			switch d := rawValInterface.(type) {
+			case bool:
+				ff.SetBool(d)
+			case *bool:
+				ff.SetBool(*d)
+			case int, int8, int16, int32, int64:
+				vv := reflect.ValueOf(rawValInterface)
+				if vv.Int() > 0 {
+					ff.SetBool(true)
+				}
+			case uint, uint8, uint16, uint32, uint64:
+				vv := reflect.ValueOf(rawValInterface)
+				if vv.Uint() > 0 {
+					ff.SetBool(true)
+				}
+			case float32, float64:
+				vv := reflect.ValueOf(rawValInterface)
+				if vv.Float() > 0 {
+					ff.SetBool(true)
+				}
+			case string:
+				if d != "" {
+					ff.SetBool(true)
+				}
+			case []byte:
+				if string(d) != "" {
+					ff.SetBool(true)
+				}
+			default:
+				sc.defaultConvert(rawValInterface, ff, field)
+			}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			ff.SetInt(cast.ToInt64(rawValInterface))
+			switch d := rawValInterface.(type) {
+			case int:
+				ff.SetInt(int64(d))
+			case int8:
+				ff.SetInt(int64(d))
+			case int16:
+				ff.SetInt(int64(d))
+			case int32:
+				ff.SetInt(int64(d))
+			case int64:
+				ff.SetInt(d)
+			case uint:
+				ff.SetInt(int64(d))
+			case uint8:
+				ff.SetInt(int64(d))
+			case uint16:
+				ff.SetInt(int64(d))
+			case uint32:
+				ff.SetInt(int64(d))
+			case uint64:
+				ff.SetInt(int64(d))
+			case float32:
+				ff.SetInt(int64(d))
+			case float64:
+				ff.SetInt(int64(d))
+			case []uint8:
+				v, err := strconv.ParseInt(string(d), 0, 0)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to int64 err:%v", name, string(d), err)
+				}
+				ff.SetInt(v)
+			case string:
+				v, err := strconv.ParseInt(d, 0, 0)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to int64 err:%v", name, string(d), err)
+				}
+				ff.SetInt(v)
+			case bool:
+				if d {
+					ff.SetInt(1)
+				}
+			default:
+				sc.defaultConvert(rawValInterface, ff, field)
+			}
 		case reflect.Float32, reflect.Float64:
-			ff.SetFloat(cast.ToFloat64(rawValInterface))
+			switch d := rawValInterface.(type) {
+			case int:
+				ff.SetFloat(float64(d))
+			case int8:
+				ff.SetFloat(float64(d))
+			case int16:
+				ff.SetFloat(float64(d))
+			case int32:
+				ff.SetFloat(float64(d))
+			case int64:
+				ff.SetFloat(float64(d))
+			case uint:
+				ff.SetFloat(float64(d))
+			case uint8:
+				ff.SetFloat(float64(d))
+			case uint16:
+				ff.SetFloat(float64(d))
+			case uint32:
+				ff.SetFloat(float64(d))
+			case uint64:
+				ff.SetFloat(float64(d))
+			case float32:
+				ff.SetFloat(float64(d))
+			case float64:
+				ff.SetFloat(d)
+			case []uint8:
+				v, err := strconv.ParseFloat(string(d), 64)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to float64 err:%v", name, string(d), err)
+				}
+				ff.SetFloat(float64(v))
+			case string:
+				v, err := strconv.ParseFloat(d, 64)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to float64 err:%v", name, string(d), err)
+				}
+				ff.SetFloat(float64(v))
+			case bool:
+				if d {
+					ff.SetFloat(1)
+				}
+			default:
+				sc.defaultConvert(rawValInterface, ff, field)
+			}
 		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-			ff.SetUint(cast.ToUint64(rawValInterface))
+			switch d := rawValInterface.(type) {
+			case int:
+				ff.SetUint(uint64(d))
+			case int8:
+				ff.SetUint(uint64(d))
+			case int16:
+				ff.SetUint(uint64(d))
+			case int32:
+				ff.SetUint(uint64(d))
+			case int64:
+				ff.SetUint(uint64(d))
+			case uint:
+				ff.SetUint(uint64(d))
+			case uint8:
+				ff.SetUint(uint64(d))
+			case uint16:
+				ff.SetUint(uint64(d))
+			case uint32:
+				ff.SetUint(uint64(d))
+			case uint64:
+				ff.SetUint(d)
+			case float32:
+				ff.SetUint(uint64(d))
+			case float64:
+				ff.SetUint(uint64(d))
+			case []uint8:
+				v, err := strconv.ParseInt(string(d), 0, 0)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to int64 err:%v", name, string(d), err)
+				}
+				ff.SetUint(uint64(v))
+			case string:
+				v, err := strconv.ParseInt(d, 0, 0)
+				if err != nil {
+					return fmt.Errorf("can not convert field:%s %s to int64 err:%v", name, string(d), err)
+				}
+				ff.SetUint(uint64(v))
+			case bool:
+				if d {
+					ff.SetUint(1)
+				}
+			default:
+				sc.defaultConvert(rawValInterface, ff, field)
+			}
 		default:
-			vv := reflect.ValueOf(rawValInterface)
-			if vv.IsValid() {
-				if vv.Type().ConvertibleTo(ff.Type()) {
-					ff.Set(vv.Convert(ff.Type()))
-				} else {
-					if ff.Kind() == reflect.Ptr {
-						if ff.IsNil() {
-							ff.Set(reflect.New(field.Column.Type.Elem()))
-						}
-						ffElem := ff.Elem()
-						if vv.Type().ConvertibleTo(ffElem.Type()) {
-							ffElem.Set(vv.Convert(ffElem.Type()))
-						}
-					}
+			sc.defaultConvert(rawValInterface, ff, field)
+		}
+	}
+	return nil
+}
+
+func (sc *Scanner) defaultConvert(rawValInterface interface{}, ff reflect.Value, field *Field) {
+	vv := reflect.ValueOf(rawValInterface)
+	if vv.IsValid() {
+		if vv.Type().ConvertibleTo(ff.Type()) {
+			ff.Set(vv.Convert(ff.Type()))
+		} else {
+			if ff.Kind() == reflect.Ptr {
+				if ff.IsNil() {
+					ff.Set(reflect.New(field.Column.Type.Elem()))
+				}
+				ffElem := ff.Elem()
+				if vv.Type().ConvertibleTo(ffElem.Type()) {
+					ffElem.Set(vv.Convert(ffElem.Type()))
 				}
 			}
 		}
 	}
-	return nil
 }

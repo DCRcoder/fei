@@ -19,6 +19,9 @@ func formatDSN(dsn string) string {
 	if strings.Index(dsn, "parseTime=true") <= 0 {
 		return fmt.Sprintf("%s&%s", dsn, "parseTime=true")
 	}
+	if strings.Index(dsn, "strict=true") <= 0 {
+		return fmt.Sprintf("%s&%s", dsn, "strict=true")
+	}
 	return dsn
 }
 

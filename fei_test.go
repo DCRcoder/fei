@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/alecthomas/assert"
 	_ "github.com/go-sql-driver/mysql"
@@ -19,12 +18,12 @@ var (
 )
 
 type CodeBook struct {
-	Name      string
-	ID        int64 `fei:"pk,columnName=id"`
-	Password  string
-	Remarks   *string
-	CreatedAt string    `fei:"readOnly"`
-	UpdatedAt time.Time `fei:"readOnly"`
+	ID        int64   `json:"id" fei:"pk,columnName=id"`
+	Name      string  `json:"name"`
+	Password  string  `json:"password"`
+	Remarks   *string `json:"remarks"`
+	CreatedAt string  `json:"created_at" fei:"readOnly"`
+	UpdatedAt string  `json:"update_at" fei:"readOnly"`
 }
 
 func (c *CodeBook) TableName() string {
@@ -75,6 +74,7 @@ func TestFindOne(t *testing.T) {
 	assert.Equal(t, err, nil)
 	err = engine.NewSession().Select().Where(Eq{"name": "laojun"}).FindOne(&c)
 	assert.Equal(t, err, nil)
+	assert.Equal(t, c.ID, int64(7))
 	assert.Equal(t, c.Name, "laojun")
 	assert.Equal(t, *c.Remarks, "qingning")
 }
@@ -101,8 +101,14 @@ func TestFindAll(t *testing.T) {
 	err = engine.NewSession().Select().Where(Eq{"name": "liubin"}).OrderBy("id desc").FindAll(&c)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, len(c), 3)
+	assert.Equal(t, c[1].ID, int64(9))
 	assert.Equal(t, c[1].Name, "liubin")
 	assert.Equal(t, c[1].Password, "qingning")
+	cc := make([]*CodeBook, 0)
+	err = engine.NewSession().Select().FindAll(&cc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(cc), 5)
+	assert.Equal(t, cc[1].ID, int64(7))
 }
 
 func TestDeleteOne(t *testing.T) {
