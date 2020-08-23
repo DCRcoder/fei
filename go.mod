@@ -1,4 +1,4 @@
-module fei
+module github.com/DCRcoder/fei
 
 go 1.13
 
