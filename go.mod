@@ -12,5 +12,4 @@ require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/rs/zerolog v1.19.0
 	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/spf13/cast v1.3.1
 )
