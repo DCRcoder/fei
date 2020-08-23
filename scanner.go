@@ -259,7 +259,18 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 			case []byte:
 				ff.SetString(string(d))
 			default:
-				sc.defaultConvert(rawValInterface, ff, field)
+				// https://github.com/spf13/cast/blob/master/caste.go#L778
+				// 尝试转化成 fmt.Stringer
+				var errorType = reflect.TypeOf((*error)(nil)).Elem()
+				var fmtStringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+				v := reflect.ValueOf(d)
+				for !v.Type().Implements(fmtStringerType) && !v.Type().Implements(errorType) && v.Kind() == reflect.Ptr && !v.IsNil() {
+					v = v.Elem()
+				}
+				switch vv := v.Interface().(type) {
+				case fmt.Stringer:
+					ff.SetString(vv.String())
+				}
 			}
 		case reflect.Bool:
 			switch d := rawValInterface.(type) {
@@ -291,7 +302,7 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 					ff.SetBool(true)
 				}
 			default:
-				sc.defaultConvert(rawValInterface, ff, field)
+				sc.defaultConvert(rawValInterface, &ff, field)
 			}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			switch d := rawValInterface.(type) {
@@ -336,7 +347,7 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 					ff.SetInt(1)
 				}
 			default:
-				sc.defaultConvert(rawValInterface, ff, field)
+				sc.defaultConvert(rawValInterface, &ff, field)
 			}
 		case reflect.Float32, reflect.Float64:
 			switch d := rawValInterface.(type) {
@@ -381,7 +392,7 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 					ff.SetFloat(1)
 				}
 			default:
-				sc.defaultConvert(rawValInterface, ff, field)
+				sc.defaultConvert(rawValInterface, &ff, field)
 			}
 		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 			switch d := rawValInterface.(type) {
@@ -426,16 +437,16 @@ func (sc *Scanner) SetEntity(srcValue []interface{}, dest reflect.Value) error {
 					ff.SetUint(1)
 				}
 			default:
-				sc.defaultConvert(rawValInterface, ff, field)
+				sc.defaultConvert(rawValInterface, &ff, field)
 			}
 		default:
-			sc.defaultConvert(rawValInterface, ff, field)
+			sc.defaultConvert(rawValInterface, &ff, field)
 		}
 	}
 	return nil
 }
 
-func (sc *Scanner) defaultConvert(rawValInterface interface{}, ff reflect.Value, field *Field) {
+func (sc *Scanner) defaultConvert(rawValInterface interface{}, ff *reflect.Value, field *Field) {
 	vv := reflect.ValueOf(rawValInterface)
 	if vv.IsValid() {
 		if vv.Type().ConvertibleTo(ff.Type()) {

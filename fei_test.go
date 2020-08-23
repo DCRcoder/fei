@@ -2,8 +2,10 @@ package fei
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/alecthomas/assert"
 	_ "github.com/go-sql-driver/mysql"
@@ -18,12 +20,12 @@ var (
 )
 
 type CodeBook struct {
-	ID        int64   `json:"id" fei:"pk,columnName=id"`
-	Name      string  `json:"name"`
-	Password  string  `json:"password"`
-	Remarks   *string `json:"remarks"`
-	CreatedAt string  `json:"created_at" fei:"readOnly"`
-	UpdatedAt string  `json:"update_at" fei:"readOnly"`
+	ID        int64     `json:"id" fei:"pk,columnName=id"`
+	Name      string    `json:"name"`
+	Password  string    `json:"password"`
+	Remarks   *string   `json:"remarks"`
+	CreatedAt string    `json:"created_at" fei:"readOnly"`
+	UpdatedAt time.Time `json:"update_at" fei:"readOnly"`
 }
 
 func (c *CodeBook) TableName() string {
@@ -77,6 +79,8 @@ func TestFindOne(t *testing.T) {
 	assert.Equal(t, c.ID, int64(7))
 	assert.Equal(t, c.Name, "laojun")
 	assert.Equal(t, *c.Remarks, "qingning")
+	assert.NotEqual(t, c.CreatedAt, "")
+	assert.NotEqual(t, c.UpdatedAt, nil)
 }
 
 func TestFindOneColumn(t *testing.T) {
