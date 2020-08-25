@@ -144,16 +144,11 @@ func (sc *Scanner) GetTableName() string {
 
 // Convert scan rows to dest
 func (sc *Scanner) Convert() error {
-	if !sc.entityPointer.CanSet() {
-		return ScannerEntityNeedCanSet
-	}
-	srcValue := make([]interface{}, len(sc.fields))
-	for i := 0; i < len(sc.fields); i++ {
-		var v interface{}
-		srcValue[i] = &v
-	}
 	if sc.rows == nil {
 		return ScannerRowsPointerNil
+	}
+	if !sc.entityPointer.CanSet() {
+		return ScannerEntityNeedCanSet
 	}
 	fields, err := sc.rows.Columns()
 	if err != nil {
@@ -201,9 +196,9 @@ func (sc *Scanner) convertOne() error {
 		if err != nil {
 			return err
 		}
-		sc.SetEntity(srcValue, sc.entityPointer)
+		return sc.SetEntity(srcValue, sc.entityPointer)
 	}
-	return nil
+	return RecordNotFound
 }
 
 // SetEntity set entity

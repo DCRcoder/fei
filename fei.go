@@ -107,5 +107,5 @@ func (e *Engine) NewSession() *Session {
 
 // Close Engine close
 func (e *Engine) Close() {
-	e.Close()
+	e.DB.Close()
 }
