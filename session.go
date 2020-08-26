@@ -8,12 +8,15 @@ import (
 
 // Session db conn session
 type Session struct {
-	e         error
-	db        *DB
-	ctx       context.Context
-	statement *Statement
-	useMaster bool
-	logger    Logger
+	e                      error
+	db                     *DB
+	ctx                    context.Context
+	statement              *Statement
+	useMaster              bool
+	logger                 Logger
+	isAutoCommit           bool
+	hasCommittedOrRollback bool
+	tx                     *sql.Tx
 }
 
 // UseMaster enable use master
@@ -365,6 +368,9 @@ func (s *Session) OrderBy(orderby string) *Session {
 
 // QueryRow use QueryRow with session config
 func (s *Session) QueryRow(query string, args ...interface{}) *sql.Row {
+	if s.tx != nil {
+		return s.tx.QueryRow(query, args...)
+	}
 	if s.useMaster {
 		return s.db.Master().QueryRow(query, args...)
 	}
@@ -373,6 +379,9 @@ func (s *Session) QueryRow(query string, args ...interface{}) *sql.Row {
 
 // Query use Query with session config
 func (s *Session) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if s.tx != nil {
+		return s.tx.Query(query, args...)
+	}
 	if s.useMaster {
 		return s.db.Master().Query(query, args...)
 	}
@@ -381,6 +390,9 @@ func (s *Session) Query(query string, args ...interface{}) (*sql.Rows, error) {
 
 // QueryContext use QueryContext with session config
 func (s *Session) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	if s.tx != nil {
+		return s.tx.QueryContext(ctx, query, args...)
+	}
 	if s.useMaster {
 		return s.db.Master().QueryContext(ctx, query, args...)
 	}
@@ -389,6 +401,9 @@ func (s *Session) QueryContext(ctx context.Context, query string, args ...interf
 
 // QueryRawContext use QueryRawContext with session config
 func (s *Session) QueryRawContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	if s.tx != nil {
+		return s.tx.QueryRowContext(ctx, query, args...)
+	}
 	if s.useMaster {
 		return s.db.Master().QueryRowContext(ctx, query, args...)
 	}
@@ -397,10 +412,98 @@ func (s *Session) QueryRawContext(ctx context.Context, query string, args ...int
 
 // Exec execute
 func (s *Session) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if s.tx != nil {
+		return s.tx.Exec(query, args...)
+	}
 	return s.db.Master().Exec(query, args...)
 }
 
 // ExecContext execute with context
 func (s *Session) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	if s.tx != nil {
+		return s.tx.ExecContext(ctx, query, args...)
+	}
 	return s.db.Master().ExecContext(ctx, query, args...)
+}
+
+// Begin begin transaction
+func (s *Session) Begin() error {
+	tx, err := s.db.Master().Begin()
+	if err != nil {
+		return err
+	}
+	s.logger.Debugf("[Session Begin] begin transaction")
+	// 重置 transaction 状态
+	s.hasCommittedOrRollback = false
+	s.isAutoCommit = false
+	s.tx = tx
+	return nil
+}
+
+// BeginTx begin transaction with opts
+func (s *Session) BeginTx(opts *sql.TxOptions) error {
+	tx, err := s.db.Master().BeginTx(s.ctx, opts)
+	if err != nil {
+		return err
+	}
+	s.logger.Debugf("[Session Begin] begin transaction opts: %v", opts)
+	// 重置 transaction 状态
+	s.hasCommittedOrRollback = false
+	s.isAutoCommit = false
+	s.tx = tx
+	return nil
+}
+
+// RollBack  transaction rollback
+func (s *Session) RollBack() error {
+	if !s.isAutoCommit && !s.hasCommittedOrRollback {
+		err := s.tx.Rollback()
+		if err != nil {
+			return err
+		}
+		s.hasCommittedOrRollback = true
+	}
+	return nil
+}
+
+// Commit transaction commit
+func (s *Session) Commit() error {
+	if !s.isAutoCommit && !s.hasCommittedOrRollback {
+		err := s.tx.Commit()
+		if err != nil {
+			return err
+		}
+		s.hasCommittedOrRollback = true
+	}
+	return nil
+}
+
+// Transaction  transaction with autoCommit
+func (s *Session) Transaction(f func() (interface{}, error)) (interface{}, error) {
+	err := s.Begin()
+	if err != nil {
+		return nil, err
+	}
+	d, err := f()
+	if err != nil {
+		s.RollBack()
+	} else {
+		s.Commit()
+	}
+	return d, err
+}
+
+// TransactionTx  transactionTx with autoCommit
+func (s *Session) TransactionTx(f func() (interface{}, error), opts *sql.TxOptions) (interface{}, error) {
+	err := s.BeginTx(opts)
+	if err != nil {
+		return nil, err
+	}
+	d, err := f()
+	if err != nil {
+		s.RollBack()
+	} else {
+		s.Commit()
+	}
+	return d, err
 }

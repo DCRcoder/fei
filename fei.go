@@ -93,10 +93,13 @@ func (e *Engine) SetLogLevel(level LogLevel) {
 // NewSessionCtx return new sessiont instance with ctx
 func (e *Engine) NewSessionCtx(ctx context.Context) *Session {
 	return &Session{
-		db:        e.DB,
-		ctx:       ctx,
-		statement: &Statement{},
-		logger:    e.Logger,
+		db:                     e.DB,
+		ctx:                    ctx,
+		statement:              &Statement{},
+		logger:                 e.Logger,
+		isAutoCommit:           true,
+		hasCommittedOrRollback: false,
+		tx:                     nil,
 	}
 }
 
