@@ -479,12 +479,12 @@ func (s *Session) Commit() error {
 }
 
 // Transaction  transaction with autoCommit
-func (s *Session) Transaction(f func() (interface{}, error)) (interface{}, error) {
+func (s *Session) Transaction(f func(*Session) (interface{}, error)) (interface{}, error) {
 	err := s.Begin()
 	if err != nil {
 		return nil, err
 	}
-	d, err := f()
+	d, err := f(s)
 	if err != nil {
 		s.RollBack()
 	} else {
@@ -494,12 +494,12 @@ func (s *Session) Transaction(f func() (interface{}, error)) (interface{}, error
 }
 
 // TransactionTx  transactionTx with autoCommit
-func (s *Session) TransactionTx(f func() (interface{}, error), opts *sql.TxOptions) (interface{}, error) {
+func (s *Session) TransactionTx(f func(*Session) (interface{}, error), opts *sql.TxOptions) (interface{}, error) {
 	err := s.BeginTx(opts)
 	if err != nil {
 		return nil, err
 	}
-	d, err := f()
+	d, err := f(s)
 	if err != nil {
 		s.RollBack()
 	} else {
