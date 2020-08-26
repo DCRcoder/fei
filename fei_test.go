@@ -2,6 +2,7 @@ package fei
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -182,4 +183,48 @@ func TestUpdateOne(t *testing.T) {
 	err = engine.NewSession().Select().Where(Eq{"name": "nami"}).FindOne(nc)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, nc.Password, "lufei")
+}
+
+func TestTransaction(t *testing.T) {
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	session := engine.NewSession()
+	f := func(s *Session) (interface{}, error) {
+		c := &CodeBook{ID: 2, Name: "nami", Password: "lufei", Remarks: nil}
+		_, err := s.Update(c)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	_, err = session.Transaction(f)
+	assert.Equal(t, err, nil)
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "nami"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "lufei")
+}
+
+func TestTransactionWithError(t *testing.T) {
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	session := engine.NewSession()
+	f := func(s *Session) (interface{}, error) {
+		c := &CodeBook{ID: 2, Name: "nami", Password: "lufei", Remarks: nil}
+		_, err := s.Update(c)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("update error")
+	}
+	_, err = session.Transaction(f)
+	assert.NotEqual(t, err, nil)
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "nami"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "nami")
 }
