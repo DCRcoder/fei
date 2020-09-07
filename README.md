@@ -39,14 +39,32 @@ func main() {
 
 ### Select
 ```go
+    import 	"github.com/DCRcoder/fei"
     // count
-    engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).Count()
+    engine.NewSession().Select().From("tableName").Where(fei.Eq{"field": "someting"}).Count()
     // findOne
     user := &User{} 
-    engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).FindOne(user) // need pointer
+    engine.NewSession().Select().From("tableName").Where(fei.Eq{"field": "someting"}).FindOne(user) // need pointer
     // fineAll
     users := make([]*User, 0)
-    engine.NewSession().Select().From("tableName").Where(Eq{"field": "someting"}).FindAll(&user) // need pointer
+    engine.NewSession().Select().From("tableName").Where(fei.Eq{"field": "someting"}).FindAll(&user) // need pointer
+
+    如果 user 定义了 TableName 可以不使用 From 方法
+    // e.g
+    type User struct {
+        Name string
+    }
+
+    func (u *User) TableName() string {
+        return "user"
+    }
+    // findOne
+    user := &User{}
+    engine.NewSession().Select().Where(fei.Eq{"field": "someting"}).FindOne(user) // need pointer
+    // fineAll
+    users := make([]*User, 0)
+    engine.NewSession().Select().Where(fei.Eq{"field": "someting"}).FindAll(&user) // need pointer
+    // where 中条件可以多种定义 详情参见 cond.go
 ```
 
 ### Insert
