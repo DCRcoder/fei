@@ -88,6 +88,13 @@ func main() {
 
 ```
 
+### UpdateRow
+```go
+    // update a record by updateRow
+    user := &User{}
+    engine.NewSession().From("table_name").Where(Eq{"id": 12313}).UpdateRow(map[string]interface{}{"name": "xxxx"})
+```
+
 ### Delete
 ```go
     // delete a record
