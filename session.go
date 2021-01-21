@@ -170,10 +170,17 @@ func (s *Session) Update(dest interface{}) (int64, error) {
 	}
 	updateFields := make([]string, 0)
 	pks := make([]interface{}, 0)
+	primaryKey := ""
 	for n, f := range scanner.Model.Fields {
-		if !f.IsReadOnly {
+		if !f.IsReadOnly && !f.IsPrimaryKey {
 			updateFields = append(updateFields, n)
 		}
+		if f.IsPrimaryKey {
+			primaryKey = n
+		}
+	}
+	if primaryKey == "" {
+		return 0, ModelMustHavePrimaryKey
 	}
 	s.Columns(updateFields...)
 	if scanner.entityPointer.Kind() == reflect.Slice {
@@ -188,12 +195,11 @@ func (s *Session) Update(dest interface{}) (int64, error) {
 						continue
 					}
 					fv := subElem.Field(f.idx)
-					if f.IsPrimaryKey {
-						pks = append(pks, fv.Interface())
-					}
 					val = append(val, fv.Interface())
 				}
-
+				primaryF, _ := scanner.Model.Fields[primaryKey]
+				fv := subElem.Field(primaryF.idx)
+				pks = append(pks, fv.Interface())
 			} else {
 				for _, fn := range updateFields {
 					f, ok := scanner.Model.Fields[fn]
@@ -201,11 +207,11 @@ func (s *Session) Update(dest interface{}) (int64, error) {
 						continue
 					}
 					fv := sub.Field(f.idx)
-					if f.IsPrimaryKey {
-						pks = append(pks, fv.Interface())
-					}
 					val = append(val, fv.Interface())
 				}
+				primaryF, _ := scanner.Model.Fields[primaryKey]
+				fv := sub.Field(primaryF.idx)
+				pks = append(pks, fv.Interface())
 			}
 			s.statement.Values(val)
 		}
@@ -218,11 +224,11 @@ func (s *Session) Update(dest interface{}) (int64, error) {
 				continue
 			}
 			fv := scanner.entityPointer.Field(f.idx)
-			if f.IsPrimaryKey {
-				pks = append(pks, fv.Interface())
-			}
 			val = append(val, fv.Interface())
 		}
+		primaryF, _ := scanner.Model.Fields[primaryKey]
+		fv := scanner.entityPointer.Field(primaryF.idx)
+		pks = append(pks, fv.Interface())
 		s.statement.Values(val)
 	} else {
 		return 0, UpdateExpectSliceOrStruct
@@ -233,6 +239,33 @@ func (s *Session) Update(dest interface{}) (int64, error) {
 		return 0, err
 	}
 	s.logger.Debugf("[Session Update] sql: %s, args: %v", sql, args)
+	s.initCtx()
+	sResult, err := s.ExecContext(s.ctx, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	return sResult.RowsAffected()
+}
+
+// UpdateRow updateRow method without model
+func (s *Session) UpdateRow(param map[string]interface{}) (int64, error) {
+	if param == nil {
+		return 0, UpdateRowParamMustHaveValue
+	}
+	s.statement.stType = UpdateStatement
+	if len(s.statement.conditions) == 0 || s.statement.table == "" {
+		return 0, UpdateRowMustWithConditionAndTableName
+	}
+	updateFields := make([]string, 0)
+	val := make([]interface{}, 0)
+	for k, v := range param {
+		updateFields = append(updateFields, k)
+		val = append(val, v)
+	}
+	s.Columns(updateFields...)
+	s.statement.Values(val)
+	sql, args, err := s.statement.ToSQL()
+	s.logger.Debugf("[Session UpdateRow] sql: %s, args: %v", sql, args)
 	s.initCtx()
 	sResult, err := s.ExecContext(s.ctx, sql, args...)
 	if err != nil {

@@ -20,12 +20,12 @@ var (
 )
 
 type CodeBook struct {
-	ID        int64     `json:"id" fei:"pk,columnName=id"`
-	Name      string    `json:"name"`
-	Password  string    `json:"password"`
-	Remarks   *string   `json:"remarks"`
-	CreatedAt string    `json:"created_at" fei:"readOnly"`
-	UpdatedAt time.Time `json:"update_at" fei:"readOnly"`
+	ID        int64 `fei:"pk"`
+	Name      string
+	Password  string
+	Remarks   *string
+	CreatedAt time.Time `fei:"readOnly"`
+	UpdatedAt string    `fei:"readOnly"`
 }
 
 func (c *CodeBook) TableName() string {
@@ -183,6 +183,53 @@ func TestUpdateOne(t *testing.T) {
 	err = engine.NewSession().Select().Where(Eq{"name": "nami"}).FindOne(nc)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, nc.Password, "lufei")
+}
+
+func TestUpdateMany(t *testing.T) {
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
+	cs := []*CodeBook{
+		&CodeBook{ID: 2, Name: "nami", Password: "lufei", Remarks: nil},
+		&CodeBook{ID: 10, Name: "nami123", Password: "feifei", Remarks: nil},
+	}
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().Update(cs)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(2))
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"name": "nami123"}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Password, "feifei")
+}
+
+func TestUpdateRowOne(t *testing.T) {
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().From("codebook").Where(Eq{"id": 2}).UpdateRow(map[string]interface{}{"name": "maomao"})
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(1))
+	nc := &CodeBook{}
+	err = engine.NewSession().Select().Where(Eq{"id": 2}).FindOne(nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc.Name, "maomao")
+}
+
+func TestUpdateRowMany(t *testing.T) {
+	prepareTestDatabase()
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	rowcount, err := engine.NewSession().From("codebook").Where(Eq{"id": []int{2, 10}}).UpdateRow(map[string]interface{}{"name": "maomao"})
+	assert.Equal(t, err, nil)
+	assert.Equal(t, rowcount, int64(2))
+	nc := make([]*CodeBook, 0)
+	err = engine.NewSession().Select().Where(Eq{"id": []int{2, 10}}).FindAll(&nc)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, nc[0].Name, "maomao")
+	assert.Equal(t, nc[1].Name, "maomao")
 }
 
 func TestTransaction(t *testing.T) {
