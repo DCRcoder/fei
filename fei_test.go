@@ -222,14 +222,14 @@ func TestUpdateRowMany(t *testing.T) {
 	engine, err := NewEngine("mysql", dbAddr)
 	engine.SetLogLevel(LogDebug)
 	assert.Equal(t, err, nil)
-	rowcount, err := engine.NewSession().From("codebook").Where(Eq{"id": []int{2, 10}}).UpdateRow(map[string]interface{}{"name": "maomao"})
+	rowcount, err := engine.NewSession().From("codebook").Where(Eq{"name": []string{"liubin", "nami"}}).UpdateRow(map[string]interface{}{"remarks": "maomao"})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, rowcount, int64(2))
+	assert.Equal(t, rowcount, int64(4))
 	nc := make([]*CodeBook, 0)
 	err = engine.NewSession().Select().Where(Eq{"id": []int{2, 10}}).FindAll(&nc)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, nc[0].Name, "maomao")
-	assert.Equal(t, nc[1].Name, "maomao")
+	assert.Equal(t, *nc[0].Remarks, "maomao")
+	assert.Equal(t, *nc[1].Remarks, "maomao")
 }
 
 func TestTransaction(t *testing.T) {
