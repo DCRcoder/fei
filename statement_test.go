@@ -23,4 +23,15 @@ func TestSelectStatement(t *testing.T) {
 	fmt.Println(s)
 	assert.Equal(t, s, "SELECT * FROM user WHERE (name IN (?) OR age > ?)")
 
+	st.Select("*").From("user").EnableExplain(true)
+	s, _, err = st.ToSQL()
+	assert.Equal(t, err, nil)
+	fmt.Println(s)
+	assert.Equal(t, s, "EXPLAIN SELECT * FROM user")
+
+	st.Select("*").From("user").UseIndexs("idx", "idxy")
+	s, _, err = st.ToSQL()
+	assert.Equal(t, err, nil)
+	fmt.Println(s)
+	assert.Equal(t, s, "SELECT * FROM user USE INDEX (idx, idxy)")
 }

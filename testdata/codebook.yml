@@ -2,6 +2,7 @@
   name: "laojun"
   password: "liubin"
   remarks: "qingning"
+  id_num: 23
   created_at: 2020-12-31 23:59:59
   updated_at: 2020-12-31 23:59:59
 
@@ -9,6 +10,8 @@
   name: "liubin"
   password: "qingning"
   remarks: 
+  id_num: 23
+  created_at: 2020-12-31 23:59:59
   created_at: 2020-12-31 23:59:59
   updated_at: 2020-12-31 23:59:59
 
@@ -16,6 +19,8 @@
   name: "liubin"
   password: "qingning"
   remarks: 
+  id_num: 23
+  created_at: 2020-12-31 23:59:59
   created_at: 2020-12-31 23:59:59
   updated_at: 2020-12-31 23:59:59
 
@@ -23,6 +28,8 @@
   name: "liubin"
   password: "qingning"
   remarks: "qingning"
+  id_num: 23
+  created_at: 2020-12-31 23:59:59
   created_at: 2020-12-31 23:59:59
   updated_at: 2020-12-31 23:59:59
   
@@ -30,6 +37,8 @@
   name: "nami"
   password: "nami"
   remarks: "nami"
+  id_num: 76
+  created_at: 2020-12-31 23:59:59
   created_at: 2020-12-31 23:59:59
   updated_at: 2020-12-31 23:59:59
     

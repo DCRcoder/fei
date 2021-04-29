@@ -1,7 +1,7 @@
 package fei
 
 import (
-	sq "github.com/Masterminds/squirrel"
+	sq "github.com/DCRcoder/squirrel"
 )
 
 // StatementType statement type
@@ -17,14 +17,17 @@ const (
 
 // Statement statement
 type Statement struct {
-	stType     StatementType
-	table      string
-	columns    []string
-	limit      uint64
-	offset     uint64
-	orderBys   []string
-	conditions []Condition
-	values     [][]interface{}
+	stType        StatementType
+	table         string
+	columns       []string
+	limit         uint64
+	offset        uint64
+	orderBys      []string
+	conditions    []Condition
+	values        [][]interface{}
+	enableExplain bool
+	useIndexs     []string
+	forceIndexs   []string 
 }
 
 // Reset Statement Reset
@@ -37,6 +40,12 @@ func (st *Statement) Reset() {
 	st.conditions = make([]Condition, 0)
 	st.orderBys = make([]string, 0)
 	st.values = make([][]interface{}, 0)
+	st.enableExplain = false
+}
+
+func (st *Statement) EnableExplain(flag bool) *Statement {
+	st.enableExplain = flag
+	return st
 }
 
 // Select set select statment
@@ -60,6 +69,20 @@ func (st *Statement) Columns(columns ...string) *Statement {
 	cs := make([]string, 0)
 	cs = append(cs, columns...)
 	st.columns = cs
+	return st
+}
+
+func (st *Statement) UseIndexs(idx ...string) *Statement {
+	idxs := make([]string, 0)
+	idxs = append(idxs, idx...)
+	st.useIndexs = idxs
+	return st
+}
+
+func (st *Statement) ForceIndexs(idx ...string) *Statement {
+	idxs := make([]string, 0)
+	idxs = append(idxs, idx...)
+	st.forceIndexs = idxs
 	return st
 }
 
@@ -134,9 +157,18 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 		} else {
 			builder = sq.Select("*")
 		}
+		if st.enableExplain {
+			builder = builder.Explain()
+		}
 		builder = builder.From(st.table)
 		for _, c := range st.conditions {
 			builder = builder.Where(st.ConvertCondition(c.Expr))
+		}
+		if len(st.useIndexs) > 0 {
+			builder = builder.UseIndexs(st.useIndexs...)
+		}
+		if len(st.forceIndexs) > 0 {
+			builder = builder.ForceIndexs(st.forceIndexs...)
 		}
 		if st.offset > 0 {
 			builder = builder.Offset(st.offset)
@@ -147,7 +179,8 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 		if len(st.orderBys) > 0 {
 			builder = builder.OrderBy(st.orderBys...)
 		}
-		return builder.ToSql()
+		sqlStr, args, err := builder.ToSql()
+		return sqlStr, args, err
 	case DeleteStatement:
 		builder := sq.Delete(st.table)
 		for _, c := range st.conditions {
@@ -169,7 +202,8 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 		for _, v := range st.values {
 			builder = builder.Values(v...)
 		}
-		return builder.ToSql()
+		sqlStr, args, err := builder.ToSql()
+		return sqlStr, args, err
 	case UpdateStatement:
 		builder := sq.Update(st.table)
 		for _, v := range st.values {
@@ -191,7 +225,8 @@ func (st *Statement) ToSQL() (string, []interface{}, error) {
 		if len(st.orderBys) > 0 {
 			builder = builder.OrderBy(st.orderBys...)
 		}
-		return builder.ToSql()
+		sqlStr, args, err := builder.ToSql()
+		return sqlStr, args, err
 	}
 	return "", nil, StatementTypeNotSet
 }

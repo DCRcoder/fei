@@ -3,6 +3,7 @@ package fei
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"reflect"
 )
 
@@ -17,6 +18,7 @@ type Session struct {
 	isAutoCommit           bool
 	hasCommittedOrRollback bool
 	tx                     *sql.Tx
+	explainModel           bool
 }
 
 // UseMaster enable use master
@@ -40,12 +42,17 @@ func (s *Session) FindOne(dest interface{}) error {
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
 	}
+
+	if s.explainModel {
+		s.explain()
+	}
+
+	s.initCtx()
 	sql, args, err := s.statement.ToSQL()
 	if err != nil {
 		return err
 	}
 	s.logger.Debugf("[Session FindOne] sql: %s, args: %v", sql, args)
-	s.initCtx()
 	rows, err := s.QueryContext(s.ctx, sql, args...)
 	if err != nil {
 		return err
@@ -68,12 +75,16 @@ func (s *Session) FindAll(dest interface{}) error {
 	if s.statement.table == "" {
 		s.statement.From(scanner.GetTableName())
 	}
+
+	s.initCtx()
+	if s.explainModel {
+		s.explain()
+	}
 	sql, args, err := s.statement.ToSQL()
 	if err != nil {
 		return err
 	}
 	s.logger.Debugf("[Session FindAll] sql: %s, args: %v", sql, args)
-	s.initCtx()
 	rows, err := s.QueryContext(s.ctx, sql, args...)
 	if err != nil {
 		return err
@@ -353,12 +364,30 @@ func (s *Session) initStatemnt() {
 	}
 }
 
+func (s *Session) EnableExplain(flag bool) *Session {
+	s.explainModel = flag
+	return s
+}
+
 // Select select columns default "*"
 func (s *Session) Select(columns ...string) *Session {
 	s.initStatemnt()
 	s.statement.Select(columns...)
 	return s
 }
+
+func (s *Session) UseIndexs(idx ...string) *Session {
+	s.initStatemnt()
+	s.statement.UseIndexs(idx...)
+	return s
+}
+
+func (s *Session) ForceIndexs(idx ...string) *Session {
+	s.initStatemnt()
+	s.statement.ForceIndexs(idx...)
+	return s
+}
+
 
 // Columns set sql columns atttentio Columns will reset st.columns
 func (s *Session) Columns(columns ...string) *Session {
@@ -539,4 +568,29 @@ func (s *Session) TransactionTx(f func(*Session) (interface{}, error), opts *sql
 		s.Commit()
 	}
 	return d, err
+}
+
+func (s *Session) explain() {
+	s.statement.EnableExplain(true)
+	defer s.statement.EnableExplain(false)
+	sql, args, err := s.statement.ToSQL()
+	if err != nil {
+		s.logger.Debugf("[Session FindAll] explian tosql error sql: %s, args: %v error: %v", sql, args, err)
+		return
+	}
+	rows, err := s.QueryContext(s.ctx, sql, args...)
+	if err != nil {
+		s.logger.Debugf("[Session FindAll] explian query error sql: %s, args: %v error: %v", sql, args, err)
+		return
+	}
+	for rows.Next() {
+		explain := &ExplainModel{}
+		err := rows.Scan(&explain.ID, &explain.SelectType, &explain.Table, &explain.Partitions, &explain.Type, &explain.PossibleKeys, &explain.Key, &explain.KeyLen, &explain.Ref, &explain.Rows, &explain.Filtered, &explain.Extra)
+		if err != nil {
+			s.logger.Debugf("[Session FindAll] explian model scan error sql: %s, args: %v error: %v", sql, args, err)
+			return
+		}
+		b, _ := json.Marshal(explain)
+		s.logger.Debugf("[Session FindAll] explian %s", string(b))
+	}
 }

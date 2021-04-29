@@ -83,6 +83,17 @@ func TestFindOne(t *testing.T) {
 	assert.NotEqual(t, c.UpdatedAt, nil)
 }
 
+func TestFindOneBlank(t *testing.T) {
+	prepareTestDatabase()
+	c := CodeBook{}
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	err = engine.NewSession().Select().FindOne(&c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, c.ID, int64(2))
+}
+
 func TestFindOneColumn(t *testing.T) {
 	prepareTestDatabase()
 	c := CodeBook{}
@@ -113,6 +124,28 @@ func TestFindAll(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, len(cc), 5)
 	assert.Equal(t, cc[1].ID, int64(7))
+}
+
+func TestExplain(t *testing.T) {
+	prepareTestDatabase()
+	c := make([]*CodeBook, 0)
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	err = engine.NewSession().Select().EnableExplain(true).Where(Eq{"id_num": "76"}).OrderBy("id desc").FindAll(&c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(c), 1)
+}
+
+func TestForceIndex(t *testing.T) {
+	prepareTestDatabase()
+	c := make([]*CodeBook, 0)
+	engine, err := NewEngine("mysql", dbAddr)
+	engine.SetLogLevel(LogDebug)
+	assert.Equal(t, err, nil)
+	err = engine.NewSession().Select().EnableExplain(true).Where(Eq{"id_num": 23}).ForceIndexs("numidx").OrderBy("id desc").FindAll(&c)
+	assert.Equal(t, err, nil)
+	assert.Equal(t, len(c), 4)
 }
 
 func TestDeleteOne(t *testing.T) {

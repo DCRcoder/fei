@@ -1,9 +1,10 @@
 module github.com/DCRcoder/fei
 
-go 1.13
+go 1.14
 
 require (
-	github.com/Masterminds/squirrel v1.4.0
+	github.com/DCRcoder/squirrel v1.5.2
+	github.com/Masterminds/squirrel v1.5.0
 	github.com/alecthomas/assert v0.0.0-20170929043011-405dbfeb8e38
 	github.com/alecthomas/colour v0.1.0 // indirect
 	github.com/alecthomas/repr v0.0.0-20200325044227-4184120f674c // indirect
